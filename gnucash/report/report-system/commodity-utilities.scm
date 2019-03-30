@@ -319,6 +319,8 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
 (define (gnc:get-commoditylist-inst-prices
          commodity-list report-currency end-date
          start-percent delta-percent)
+  (issue-depcrecation-warning
+   "gnc:get-commoditylist-inst-prices is deprecated.")
   (let ((currency-accounts
          (gnc-account-get-descendants-sorted (gnc-get-current-root-account)))
         (work-to-do (length commodity-list))
@@ -369,15 +371,6 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
          (and earlier (cadr earlier))
          (and later (cadr later))))))
 
-
-;; Find the price of the 'commodity' in the 'pricealist' that is
-;; nearest to the 'date'.
-(define (gnc:pricealist-lookup-nearest-in-time pricealist commodity date)
-  (let ((plist (assoc-ref pricealist commodity)))
-    (or (and plist
-             (not (null? plist))
-             (gnc:pricelist-price-find-nearest plist date))
-        0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions to get one price at a given time (i.e. not time-variant).
@@ -694,7 +687,7 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
   (map
    (lambda (e)
      (list (car e)
-           (if (zero? ((caadr e) 'total #f)) #f
+           (if (zero? ((caadr e) 'total #f)) 0
            (abs
             (gnc-numeric-div ((cdadr e) 'total #f)
                              ((caadr e) 'total #f)
@@ -771,6 +764,8 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
 ;; the <gnc:numeric> 'price-value'. Returns a <gnc:monetary>.
 (define (gnc:exchange-by-pricevalue-helper
          foreign domestic price-value)
+  (issue-deprecation-warning
+   "gnc:exchange-by-pricevalue-helper is deprecated. please inline function.")
   (and (gnc:gnc-monetary? foreign)
        (gnc:make-gnc-monetary
         domestic
@@ -792,6 +787,8 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
 ;; 'price'. Returns a <gnc:monetary>.
 (define (gnc:exchange-by-pricedb-helper
          foreign domestic price)
+  (issue-deprecation-warning
+   "gnc:exchange-by-pricedb-helper is deprecated.")
   (and (gnc:gnc-monetary? foreign)
        (gnc:make-gnc-monetary
         domestic
@@ -856,12 +853,13 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
 
 ;; Exchange by the nearest price from pricelist. This function takes
 ;; the <gnc-monetary> 'foreign' amount, the <gnc:commodity*>
-;; 'domestic' commodity, a <gnc:time-pair> 'date' and the
+;; 'domestic' commodity, a <gnc:time64> 'date' and the
 ;; 'pricelist'. It exchanges the amount into the domestic currency,
 ;; using the price nearest to 'data' found in the pricelist. The
 ;; function returns a <gnc-monetary>.
 (define (gnc:exchange-by-pricealist-nearest
          pricealist foreign domestic date)
+  ;;Used in weighted-average gnc:case-exchange-time-fn only.
   (gnc:debug "foreign " (gnc:monetary->string foreign))
   (gnc:debug "domestic " (gnc-commodity-get-printname domestic))
   (gnc:debug "pricealist " pricealist)
@@ -870,11 +868,13 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
        date
        (or (gnc:exchange-by-euro foreign domestic date)
            (gnc:exchange-if-same foreign domestic)
-           (and (pair? pricealist)
-                (gnc:exchange-by-pricevalue-helper
-                 foreign domestic
-                 (gnc:pricealist-lookup-nearest-in-time
-                  pricealist (gnc:gnc-monetary-commodity foreign) date))))))
+           (let* ((foreign-comm (gnc:gnc-monetary-commodity foreign))
+                  (foreign-amt (gnc:gnc-monetary-amount foreign))
+                  (plist (assoc-ref pricealist foreign-comm))
+                  (price (and plist
+                              (gnc:pricelist-price-find-nearest plist date))))
+             (gnc:make-gnc-monetary domestic (* foreign-amt (or price 0)))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Choosing exchange functions made easy -- get the right function by
@@ -940,7 +940,10 @@ construct with gnc:make-gnc-monetary and gnc:monetary->string instead.")
   ;; gnc:get-commodity-inst-prices directly.
     ((actual-transactions) (let ((pricealist
                                   (gnc:get-commoditylist-inst-prices
-                                   commodity-list report-currency to-date-tp)))
+                                   commodity-list report-currency to-date-tp
+                                   start-percent delta-percent)))
+                             (issue-deprecation-warning
+                              "this path is never reached in code.")
                              (lambda (foreign domestic date)
                                (gnc:exchange-by-pricealist-nearest
                                 pricealist foreign domestic date))))
