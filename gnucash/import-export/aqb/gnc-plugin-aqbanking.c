@@ -110,17 +110,17 @@ static GtkActionEntry gnc_plugin_actions [] =
     {
         "ABIssueSepaTransAction", NULL,
 		/* Translators: https://en.wikipedia.org/wiki/Single_Euro_Payments_Area */
-		N_("_Issue SEPA Transaction..."), NULL,
+		N_("Issue _SEPA Transaction..."), NULL,
         N_("Issue a new international European (SEPA) transaction online through Online Banking"),
         G_CALLBACK(gnc_plugin_ab_cmd_issue_sepatransaction)
     },
     {
-        "ABIssueIntTransAction", NULL, N_("I_nternal Transaction..."), NULL,
+        "ABIssueIntTransAction", NULL, N_("_Internal Transaction..."), NULL,
         N_("Issue a new bank-internal transaction online through Online Banking"),
         G_CALLBACK(gnc_plugin_ab_cmd_issue_inttransaction)
     },
     {
-        "ABIssueSepaDirectDebitAction", NULL, N_("_Issue SEPA Direct Debit..."), NULL,
+        "ABIssueSepaDirectDebitAction", NULL, N_("Issue SEPA Direct _Debit..."), NULL,
         N_("Issue a new international European (SEPA) direct debit note online through Online Banking"),
         G_CALLBACK(gnc_plugin_ab_cmd_issue_sepa_direct_debit)
     },
@@ -131,20 +131,20 @@ static GtkActionEntry gnc_plugin_actions [] =
 		/* Translators: Message types MTxxxx are exchange formats used by the SWIFT network
 		   https://en.wikipedia.org/wiki/Society_for_Worldwide_Interbank_Financial_Telecommunication */
 		N_("Import _MT940"), NULL,
-        N_("Import a MT940 file into GnuCash"),
+        N_("Import an end-of-day account statement in SWIFT MT940 format into GnuCash."),
         G_CALLBACK(gnc_plugin_ab_cmd_mt940_import)
     },
     {
         "Mt942ImportAction", "go-previous", N_("Import MT94_2"), NULL,
-        N_("Import a MT942 file into GnuCash"),
+        N_("Import an interim account statement in SWIFT MT942 format into GnuCash."),
         G_CALLBACK(gnc_plugin_ab_cmd_mt942_import)
     },
     {
         "DtausImportAction", "go-previous",
-		/* Translators: DTAUS is a traditional german exchange format.
+	/* Translators: DTAUS is a traditional german exchange format.
            https://de.wikipedia.org/wiki/Datentr%C3%A4geraustauschverfahren */
 		N_("Import _DTAUS"), NULL,
-        N_("Import a DTAUS file into GnuCash"),
+        N_("Import a traditional german DTAUS file into GnuCash."),
         G_CALLBACK(gnc_plugin_ab_cmd_dtaus_import)
     },
     /* #ifdef CSV_IMPORT_FUNCTIONAL */
@@ -157,7 +157,7 @@ static GtkActionEntry gnc_plugin_actions [] =
     /* #endif */
     {
         "DtausImportSendAction", "go-previous", N_("Import DTAUS and _send..."), NULL,
-        N_("Import a DTAUS file into GnuCash and send the transfers online through Online Banking"),
+        N_("Import a DTAUS file into GnuCash and transmit its orders by Online Banking."),
         G_CALLBACK(gnc_plugin_ab_cmd_dtaus_importsend)
     },
 };
