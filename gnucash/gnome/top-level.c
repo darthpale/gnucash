@@ -78,7 +78,6 @@
 #include "gnc-window.h"
 #include "gnc-gkeyfile-utils.h"
 
-
 /** GLOBALS *********************************************************/
 /* This static indicates the debugging module that this .o belongs to.  */
 static QofLogModule log_module = GNC_MOD_GUI;
@@ -295,6 +294,7 @@ cleanup:
         g_error_free(error);
     if (file_guid)
         g_free(file_guid);
+    gnc_update_sx_pending_ui(); // Update pending sx count
 
     gnc_totd_dialog_reparent ();
 }
