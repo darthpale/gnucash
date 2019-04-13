@@ -100,8 +100,8 @@ sort_iter_compare_func (GtkTreeModel *model,
     gint ret = 0;
     gchar *uri1, *uri2;
 
-    gtk_tree_model_get (model, a, URI, &uri1, -1);
-    gtk_tree_model_get (model, b, URI, &uri2, -1);
+    gtk_tree_model_get (model, a, URI_U, &uri1, -1);
+    gtk_tree_model_get (model, b, URI_U, &uri2, -1);
 
     ret = g_utf8_collate (uri1, uri2);
 
@@ -170,7 +170,12 @@ convert_uri_to_unescaped (AssocDialog *assoc_dialog, const gchar *uri, gchar *sc
     file_path = convert_uri_to_filename (assoc_dialog, uri, scheme);
 
     if (file_path)
+    {
         uri_u = g_uri_unescape_string (file_path, NULL);
+#ifdef G_OS_WIN32 // make path look like a traditional windows path
+        uri_u = g_strdelimit (uri_u, "/", '\\');
+#endif
+    }
     else
         uri_u = g_uri_unescape_string (uri, NULL);
 
@@ -303,7 +308,7 @@ row_selected_cb (GtkTreeView *view, GtkTreePath *path,
 
         if (uri_out_scheme) // make sure we have a scheme entry
         {
-            gnc_launch_assoc (uri_out);
+            gnc_launch_assoc (gnc_ui_get_gtk_window(GTK_WIDGET (view)), uri_out);
             g_free (uri_out_scheme);
         }
         else
@@ -486,9 +491,12 @@ gnc_assoc_dialog_create (GtkWindow *parent, AssocDialog *assoc_dialog)
 
     if (assoc_dialog->path_head && g_strcmp0 (assoc_dialog->path_head, "") != 0) // not default entry
     {
-        gchar *path_head_str = gnc_uri_get_path (assoc_dialog->path_head);
+        gchar *path_head_ue_str = g_uri_unescape_string (assoc_dialog->path_head, NULL);
+        gchar *path_head_str = gnc_uri_get_path (path_head_ue_str);
         gchar *path_head_label;
-
+#ifdef G_OS_WIN32 // make path look like a traditional windows path
+        path_head_str = g_strdelimit (path_head_str, "/", '\\');
+#endif
         // test for current folder being present
         if (g_file_test (path_head_str, G_FILE_TEST_IS_DIR))
             path_head_label = g_strconcat (_("Path head for files is, "), path_head_str, NULL);
@@ -499,6 +507,7 @@ gnc_assoc_dialog_create (GtkWindow *parent, AssocDialog *assoc_dialog)
         gtk_label_set_text (GTK_LABEL(path_head), path_head_label);
         g_free (path_head_label);
         g_free (path_head_str);
+        g_free (path_head_ue_str);
     }
     else
     {

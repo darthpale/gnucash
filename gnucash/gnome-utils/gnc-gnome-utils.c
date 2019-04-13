@@ -458,7 +458,7 @@ gnc_gnome_help (const char *file_name, const char *anchor)
  * toolkit.
  */
 void
-gnc_launch_assoc (const char *uri)
+gnc_launch_assoc (GtkWindow *parent, const char *uri)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSString *uri_str = [NSString stringWithUTF8String: uri];
@@ -473,24 +473,25 @@ gnc_launch_assoc (const char *uri)
         return;
     }
 
-    gnc_error_dialog(NULL, "%s", message);
+    gnc_error_dialog(parent, "%s", message);
 
     [pool release];
     return;
 }
 #elif defined G_OS_WIN32 /* G_OS_WIN32 */
 void
-gnc_launch_assoc (const char *uri)
+gnc_launch_assoc (GtkWindow *parent, const char *uri)
 {
     wchar_t *winuri = NULL;
+    gchar *filename = NULL;
     /* ShellExecuteW open doesn't decode http escapes if it's passed a
      * file URI so we have to do it. */
     if (gnc_uri_is_file_uri (uri))
     {
         gchar *uri_ue = g_uri_unescape_string (uri, NULL);
-        gchar *filename = gnc_uri_get_path (uri_ue);
+        filename = gnc_uri_get_path (uri_ue);
+        filename = g_strdelimit (filename, "/", '\\'); // needed for unc paths
         winuri = (wchar_t *)g_utf8_to_utf16(filename, -1, NULL, NULL, NULL);
-        g_free (filename);
         g_free (uri_ue);
     }
     else
@@ -505,16 +506,17 @@ gnc_launch_assoc (const char *uri)
         {
             const gchar *message =
             _("GnuCash could not find the associated file");
-            gnc_error_dialog(NULL, "%s: %s", message, uri);
+            gnc_error_dialog(parent, "%s:\n%s", message, filename);
         }
         g_free (wincmd);
         g_free (winuri);
+        g_free (filename);
     }
 }
 
 #else
 void
-gnc_launch_assoc (const char *uri)
+gnc_launch_assoc (GtkWindow *parent, const char *uri)
 {
     GError *error = NULL;
     gboolean success;
@@ -533,9 +535,23 @@ gnc_launch_assoc (const char *uri)
 
     g_assert(error != NULL);
     {
+        gchar *error_uri = NULL;
         const gchar *message =
             _("GnuCash could not open the associated URI:");
-        gnc_error_dialog(NULL, "%s\n%s", message, uri);
+
+        if (gnc_uri_is_file_uri (uri))
+        {
+            gchar *uri_ue = g_uri_unescape_string (uri, NULL);
+            gchar *filename = gnc_uri_get_path (uri_ue);
+            error_uri = g_strdup (filename);
+            g_free (uri_ue);
+            g_free (filename);
+        }
+        else
+            error_uri = g_strdup (uri);
+
+        gnc_error_dialog(parent, "%s\n%s", message, error_uri);
+        g_free (error_uri);
     }
     PERR ("%s", error->message);
     g_error_free(error);
