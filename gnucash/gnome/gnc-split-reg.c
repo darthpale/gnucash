@@ -1083,7 +1083,13 @@ gsr_default_associate_handler_file (GNCSplitReg *gsr, Transaction *trans, gboole
             GtkWidget *label;
             gchar *file_uri_u = g_uri_unescape_string (file_uri, NULL);
             gchar *filename = gnc_uri_get_path (file_uri_u);
-            gchar *uri_label = g_strconcat (_("Existing Association is '"), filename, "'", NULL);
+            gchar *uri_label;
+
+#ifdef G_OS_WIN32 // make path look like a traditional windows path
+            filename = g_strdelimit (filename, "/", '\\');
+#endif
+            uri_label = g_strconcat (_("Existing Association is '"), filename, "'", NULL);
+
             PINFO("Path head: '%s', URI: '%s', Filename: '%s'", path_head, uri, filename);
             label = gtk_label_new (uri_label);
             gtk_file_chooser_set_extra_widget (GTK_FILE_CHOOSER(dialog), label);
@@ -1368,7 +1374,7 @@ gsr_default_execassociated_handler (GNCSplitReg *gsr, gpointer data)
 
         if (uri_scheme) // make sure we have a scheme entry
         {
-            gnc_launch_assoc (run_uri);
+            gnc_launch_assoc (GTK_WINDOW (gsr->window), run_uri);
             g_free (uri_scheme);
         }
         else
