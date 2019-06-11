@@ -2,9 +2,9 @@ add_subdirectory(glossary)
 
 # Set of available languages:
 # * managed at the Translation Project (TP):
-set (TP_LINGUAS az ca cs da eu fa ja nl rw sk sr sv tr uk zh_CN)
+set (TP_LINGUAS az ca cs da eu fa ja nl ro rw sk sr sv tr uk zh_CN)
 # * already marked as external at TP:
-set (GC_LINGUAS ar bg de el en_GB es fi fr gu he hi hu it kn ko lt lv mr nb ne pl pt pt_BR ro ru ta te ur vi zh_TW)
+set (GC_LINGUAS ar bg de el en_GB es fi fr gu he hi hu it kn ko lt lv mr nb ne pl pt pt_BR ru ta te ur vi zh_TW)
 # * New or unmarked: The release manager should announce them to TP 
 # and when listed there move in the respective group above.
 set (NEW_LINGUAS as brx doi es_NI hr kok kok@latin ks mai mni mni@bengali)
@@ -16,11 +16,6 @@ file (WRITE LINGUAS "${ALL_LINGUAS}")
 set (CATALOGS "")
 set (BUILD_CATALOGS "")
 
-set(CMAKE_COMMAND_TMP "")
-if (${CMAKE_VERSION} VERSION_GREATER 3.1)
-  set(CMAKE_COMMAND_TMP ${CMAKE_COMMAND} -E env)
-endif()
-
 set(po_SOURCES "")
 file (WRITE LINGUAS "")
 foreach(lingua ${ALL_LINGUAS})
@@ -28,7 +23,7 @@ foreach(lingua ${ALL_LINGUAS})
   file (APPEND LINGUAS "${lingua} ")
 endforeach()
 
-set_local_dist(po_DIST_local ${po_SOURCES} CMakeLists.txt ChangeLog Makevars
+set_local_dist(po_DIST_local ${po_SOURCES} CMakeLists.txt Makevars
   POTFILES.in POTFILES.skip README gnucash-pot.cmake)
 set(po_DIST ${po_DIST_local} ${po_glossary_DIST} PARENT_SCOPE)
 
@@ -37,9 +32,10 @@ foreach(lingua ${ALL_LINGUAS})
   list(APPEND CATALOGS ${_OUTPUT_FILE})
   add_custom_command(
       OUTPUT ${_OUTPUT_FILE}
-      COMMAND ${CMAKE_COMMAND_TMP}
+      COMMAND ${CMAKE_COMMAND} -E env
         ${GETTEXT_MSGFMT_EXECUTABLE}
             -o ${_OUTPUT_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/${lingua}.po
+      DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${lingua}.po
   )
   set(_BUILD_FILE_DIR ${DATADIR_BUILD}/locale/${lingua}/LC_MESSAGES)
   make_directory(${_BUILD_FILE_DIR})

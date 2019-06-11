@@ -239,7 +239,7 @@ class Book(GnuCashCoreClass):
 
     def InvoiceNextID(self, customer):
       ''' Return the next invoice ID.
-      This works but I'm not entirely happy with it.  FIX ME'''
+      '''
       from gnucash.gnucash_core_c import gncInvoiceNextID
       return gncInvoiceNextID(self.get_instance(),customer.GetEndOwner().get_instance()[1])
 
@@ -350,7 +350,7 @@ class GncPrice(GnuCashCoreClass):
       commodity with respect to another commodity.
       For example, a given price might represent the value of LNUX in USD on 2001-02-03.
 
-      See also http://code.gnucash.org/docs/head/group__Price.html
+      See also https://code.gnucash.org/docs/head/group__Price.html
     '''
     _new_instance = 'gnc_price_create'
 GncPrice.add_methods_with_prefix('gnc_price_')
@@ -369,7 +369,7 @@ class GncPriceDB(GnuCashCoreClass):
     Every QofBook contains a GNCPriceDB, accessible via gnc_pricedb_get_db.
 
     Definition in file gnc-pricedb.h.
-    See also http://code.gnucash.org/docs/head/gnc-pricedb_8h.html
+    See also https://code.gnucash.org/docs/head/gnc-pricedb_8h.html
     '''
 
 GncPriceDB.add_methods_with_prefix('gnc_pricedb_')
@@ -812,7 +812,8 @@ class QueryDatePredicate(GnuCashCoreClass):
     pass
 
 QueryDatePredicate.add_constructor_and_methods_with_prefix(
-    'qof_query_', 'date_predicate')
+    'qof_query_', 'date_predicate', exclude=["qof_query_date_predicate_get_date"])
+QueryDatePredicate.add_method('qof_query_date_predicate_get_date', 'get_date')
 
 class QueryGuidPredicate(GnuCashCoreClass):
     pass

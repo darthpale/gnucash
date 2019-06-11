@@ -63,6 +63,7 @@
 (define gnc:menuname-budget (N_ "B_udget"))
 (define gnc:menuname-taxes (N_ "_Taxes"))
 (define gnc:menuname-utility (N_ "_Sample & Custom"))
+(define gnc:menuname-experimental (N_ "_Experimental"))
 (define gnc:menuname-custom (N_ "_Custom"))
 (define gnc:pagename-general (N_ "General"))
 (define gnc:pagename-accounts (N_ "Accounts"))
@@ -119,16 +120,14 @@ not found.")))
   ;; set of options, and generates the report. the renderer must
   ;; return as its final value an <html-document> object.
 
-  (define (args-to-defn)
-    (let loop ((report-rec (make-report-template)) (args args))
-      (cond
-       ((null? args) report-rec)
-       (else
-        (let ((modifier (record-modifier <report-template> (car args))))
-          (modifier report-rec (cadr args))
-          (loop report-rec (cddr args)))))))
-
-  (let* ((report-rec (args-to-defn))
+  (let* ((report-rec
+          (let loop ((report-rec (make-report-template)) (args args))
+            (cond
+             ((null? args) report-rec)
+             (else
+              ((record-modifier <report-template> (car args))
+               report-rec (cadr args))
+              (loop report-rec (cddr args))))))
          (report-guid (gnc:report-template-report-guid report-rec))
          (report-name (gnc:report-template-name report-rec)))
     (cond

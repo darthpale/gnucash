@@ -76,27 +76,28 @@ void csv_export_end_date_cb (GtkWidget *radio, gpointer user_data);
 void csv_export_file_chooser_file_activated_cb (GtkFileChooser *chooser, CsvExportInfo *info);
 void csv_export_file_chooser_selection_changed_cb (GtkFileChooser *chooser, CsvExportInfo *info);
 
+/* Fixme: Can we simplify the work of translators by splitting in invariant and variant paragraphs? */
 static const gchar *finish_tree_string = N_(
             /* Translators: %s is the file name string. */
-            "The account tree will be exported to the file '%s' when you click 'Apply'.\n\n"
-            "You can also verify your selections by clicking on 'Back' or 'Cancel' to Abort Export.\n");
+            "The account tree will be exported to the file '%s' when you click \"Apply\".\n\n"
+            "You can also verify your selections by clicking on \"Back\" or \"Cancel\" to abort the export.\n");
 
 static const gchar *finish_trans_string = N_(
             /* Translators: %s is the file name string and %u the number of accounts. */
-            "When you click 'Apply', the transactions will be exported to the file '%s' and"
+            "When you click \"Apply\", the transactions will be exported to the file '%s' and"
             " the number of accounts exported will be %u.\n\n"
-            "You can also verify your selections by clicking on 'Back' or 'Cancel' to Abort Export.\n");
+            "You can also verify your selections by clicking on \"Back\" or \"Cancel\" to abort the export.\n");
 
 static const gchar *finish_trans_search_gl_string = N_(
             /* Translators: %s is the file name string. */
-            "When you click 'Apply', the transactions will be exported to the file '%s'.\n\n"
-            "You can also verify your selections by clicking on 'Back' or 'Cancel' to Abort Export.\n");
+            "When you click \"Apply\", the transactions will be exported to the file '%s'.\n\n"
+            "You can also verify your selections by clicking on \"Back\" or \"Cancel\" to abort the export.\n");
 
 static const gchar *start_tree_string = N_(
             "This assistant will help you export the Account Tree to a file\n"
             " with the separator specified below.\n\n"
-            "Select the settings you require for the file and then click 'Forward' to proceed"
-            " or 'Cancel' to Abort Export.\n");
+            "Select the settings you require for the file and then click \"Next\" to proceed"
+            " or \"Cancel\" to abort the export.\n");
 
 static const gchar *start_trans_string = N_(
             "This assistant will help you export the Transactions to a file\n"
@@ -105,8 +106,8 @@ static const gchar *start_trans_string = N_(
             " require further manipulation to get them in a format you can use.\n\n"
             "Each Transaction will appear once in the export and will be listed in"
             " the order the accounts were processed\n\n"
-            "Select the settings you require for the file and then click 'Forward' to proceed"
-            " or 'Cancel' to Abort Export.\n");
+            "Select the settings you require for the file and then click \"Next\" to proceed"
+            " or \"Cancel\" to abort the export.\n");
 
 static const gchar *start_trans_simple_string = N_(
             "This assistant will help you export the Transactions to a file\n"
@@ -117,8 +118,8 @@ static const gchar *start_trans_simple_string = N_(
             " were processed\n\n"
             "By selecting the simple layout, the output will be equivalent to a single"
             " row register view and as such some of the transfer detail could be lost.\n\n"
-            "Select the settings you require for the file and then click 'Forward' to proceed"
-            " or 'Cancel' to Abort Export.\n");
+            "Select the settings you require for the file and then click \"Next\" to proceed"
+            " or \"Cancel\" to abort the export.\n");
 
 
 /**************************************************
@@ -189,7 +190,7 @@ csv_export_file_chooser_selection_changed_cb (GtkFileChooser *chooser,
 {
     GtkAssistant *assistant = GTK_ASSISTANT(info->assistant);
 
-    /* Enable the forward button based on a valid filename */
+    /* Enable the "Next" button based on a valid filename */
     gtk_assistant_set_page_complete (assistant, info->file_page,
         csv_export_assistant_check_filename (chooser, info));
 }
@@ -419,7 +420,7 @@ csv_export_account_changed_cb (GtkTreeSelection *selection,
 
     info->csva.num_accounts = update_accounts_tree (info);
 
-    /* Enable the Forward Assistant Button if we have accounts */
+    /* Enable the "Next" Assistant Button if we have accounts */
     if (info->csva.num_accounts > 0)
         gtk_assistant_set_page_complete (assistant, info->account_page, TRUE);
     else
@@ -427,6 +428,25 @@ csv_export_account_changed_cb (GtkTreeSelection *selection,
 
     view = GNC_TREE_VIEW_ACCOUNT(info->csva.account_treeview);
     info->csva.account_list = gnc_tree_view_account_get_selected_accounts (view);
+}
+
+
+/*******************************************************
+ * csv_export_select_all_clicked_cb
+ *
+ * select all the accounts
+ *******************************************************/
+static void
+csv_export_select_all_clicked_cb (GtkWidget *widget, gpointer user_data)
+{
+    CsvExportInfo *info = user_data;
+    GtkTreeSelection *selection = gtk_tree_view_get_selection
+                                    (GTK_TREE_VIEW (info->csva.account_treeview));
+
+    gtk_tree_view_expand_all (GTK_TREE_VIEW (info->csva.account_treeview));
+    gtk_tree_selection_select_all (selection);
+
+    gtk_widget_grab_focus (info->csva.account_treeview);
 }
 
 
@@ -475,7 +495,7 @@ get_filter_times (CsvExportInfo *info)
         if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(info->csvd.start_date_today)))
             info->csvd.start_time = gnc_time64_get_today_start();
         else
-            info->csvd.start_time = 0;
+            info->csvd.start_time = info->csvd.earliest_time;
     }
 
     if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(info->csvd.end_date_choose)))
@@ -489,7 +509,7 @@ get_filter_times (CsvExportInfo *info)
         if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(info->csvd.end_date_today)))
             info->csvd.end_time = gnc_time64_get_today_end();
         else
-            info->csvd.end_time = gnc_time (NULL);
+            info->csvd.end_time = info->csvd.latest_time;
     }
 }
 
@@ -508,6 +528,15 @@ csv_export_show_range_cb (GtkRadioButton *button, gpointer user_data)
     g_return_if_fail (GTK_IS_RADIO_BUTTON(button));
 
     active = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(button));
+
+    if (!active)
+    {
+        info->csvd.start_time = info->csvd.earliest_time;
+        info->csvd.end_time = info->csvd.latest_time;
+    }
+    else
+        get_filter_times (info);
+
     gtk_widget_set_sensitive (info->csvd.table, active);
 }
 
@@ -581,22 +610,19 @@ csv_export_end_date_cb (GtkWidget *radio, gpointer user_data)
 
 
 /*******************************************************************
- * get_earliest_in_book
+ * get_earliest_and_latest_in_book
  *
- * Find the earliest date occurring in the book.  Do this by making
- * a query and sorting by date. Since the truncated sort returns
- * only the *last* search results, sort in decreasing order.
+ * Find the earliest and latest dates occurring in the book.
  *******************************************************************/
-static time64
-get_earliest_in_book (QofBook *book)
+static void
+get_earliest_and_latest_in_book (CsvExportInfo *info, QofBook *book)
 {
     QofQuery *q;
     GSList *p1, *p2;
     GList *res;
-    time64 earliest;
+    time64 etime, ltime;
 
     q = qof_query_create_for (GNC_ID_SPLIT);
-    qof_query_set_max_results (q, 1);
     qof_query_set_book (q, book);
 
     /* Sort by transaction date */
@@ -605,24 +631,24 @@ get_earliest_in_book (QofBook *book)
     p2 = g_slist_prepend (NULL, QUERY_DEFAULT_SORT);
     qof_query_set_sort_order (q, p1, p2, NULL);
 
-    /* Reverse the sort order */
-    qof_query_set_sort_increasing (q, FALSE, FALSE, FALSE);
-
-    /* Run the query, find the earliest transaction date */
+    /* Run the query, find the earliest and latest transaction dates */
     res = qof_query_run (q);
 
     if (res)
     {
-        earliest = xaccQueryGetEarliestDateFound (q);
+        etime = xaccQueryGetEarliestDateFound (q);
+        ltime = xaccQueryGetLatestDateFound (q);
     }
     else
     {
         /* If no results, we don't want to bomb totally */
-        earliest = gnc_time (0);
+        etime = gnc_time (0);
+        ltime = gnc_time (NULL);
     }
+    info->csvd.earliest_time = gnc_time64_get_day_start (etime);
+    info->csvd.latest_time = gnc_time64_get_day_end (ltime);
 
     qof_query_destroy (q);
-    return earliest;
 }
 
 
@@ -661,7 +687,7 @@ csv_export_assistant_account_page_prepare (GtkAssistant *assistant,
 {
     CsvExportInfo *info = user_data;
 
-    /* Enable the Forward Assistant Button if we have accounts */
+    /* Enable the "Next" Assistant Button if we have accounts */
     if (info->csva.num_accounts > 0)
         gtk_assistant_set_page_complete (assistant, info->account_page, TRUE);
     else
@@ -680,7 +706,7 @@ csv_export_assistant_file_page_prepare (GtkAssistant *assistant,
         gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(info->file_chooser), info->starting_dir);
     gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER(info->file_chooser), "");
 
-    /* Disable the Forward Assistant Button */
+    /* Disable the "Next" Assistant Button */
     gtk_assistant_set_page_complete (assistant, info->file_page, FALSE);
 }
 
@@ -824,7 +850,6 @@ csv_export_assistant_create (CsvExportInfo *info)
     GtkWidget *h_box;
     GtkWidget *button;
     GtkWidget *table, *hbox;
-    time64 start_time, end_time;
 
     builder = gtk_builder_new();
     gnc_builder_add_from_file  (builder , "assistant-csv-export.glade", "csv_export_assistant");
@@ -881,21 +906,25 @@ csv_export_assistant_create (CsvExportInfo *info)
         /* select subaccounts button */
         button = GTK_WIDGET(gtk_builder_get_object (builder, "select_subaccounts_button"));
         info->csva.select_button = button;
-
         g_signal_connect (G_OBJECT(button), "clicked",
                           G_CALLBACK(csv_export_select_subaccounts_clicked_cb), info);
+
+        button = GTK_WIDGET(gtk_builder_get_object (builder, "select_all_button"));
+        info->csva.select_button = button;
+        g_signal_connect (G_OBJECT(button), "clicked",
+                          G_CALLBACK(csv_export_select_all_clicked_cb), info);
+
         g_signal_connect (G_OBJECT(info->csva.account_treeview), "cursor_changed",
                           G_CALLBACK(csv_export_cursor_changed_cb), info);
 
         /* Set the date info */
         button = GTK_WIDGET(gtk_builder_get_object (builder, "show_range"));
 
-        /* Earliest and Latest in Book */
-        start_time = get_earliest_in_book (gnc_get_current_book());
-        end_time = gnc_time (NULL);
+        /* Get the Earliest and Latest dates in Book */
+        get_earliest_and_latest_in_book (info, gnc_get_current_book());
 
-        info->csvd.start_time = start_time;
-        info->csvd.end_time = end_time;
+        info->csvd.start_time = info->csvd.earliest_time;
+        info->csvd.end_time = info->csvd.latest_time;
         gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(button), FALSE);
 
         table = GTK_WIDGET(gtk_builder_get_object (builder, "select_range_table"));
@@ -912,7 +941,7 @@ csv_export_assistant_create (CsvExportInfo *info)
         hbox = GTK_WIDGET(gtk_builder_get_object (builder, "start_date_hbox"));
         gtk_box_pack_start (GTK_BOX(hbox), info->csvd.start_date, TRUE, TRUE, 0);
         gtk_widget_show (info->csvd.start_date);
-        gnc_date_edit_set_time (GNC_DATE_EDIT(info->csvd.start_date), start_time);
+        gnc_date_edit_set_time (GNC_DATE_EDIT(info->csvd.start_date), info->csvd.start_time);
         g_signal_connect (G_OBJECT(info->csvd.start_date), "date-changed",
                         G_CALLBACK(csv_export_date_changed_cb), info);
 
@@ -921,7 +950,7 @@ csv_export_assistant_create (CsvExportInfo *info)
         hbox = GTK_WIDGET(gtk_builder_get_object (builder, "end_date_hbox"));
         gtk_box_pack_start (GTK_BOX(hbox), info->csvd.end_date, TRUE, TRUE, 0);
         gtk_widget_show (info->csvd.end_date);
-        gnc_date_edit_set_time (GNC_DATE_EDIT(info->csvd.end_date), end_time);
+        gnc_date_edit_set_time (GNC_DATE_EDIT(info->csvd.end_date), info->csvd.end_time);
         g_signal_connect (G_OBJECT (info->csvd.end_date), "date-changed",
                         G_CALLBACK (csv_export_date_changed_cb), info);
 

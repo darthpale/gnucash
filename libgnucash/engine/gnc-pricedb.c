@@ -309,18 +309,19 @@ gnc_price_create (QofBook *book)
 
     g_return_val_if_fail (book, NULL);
 
+    ENTER(" ");
     p = g_object_new(GNC_TYPE_PRICE, NULL);
 
     qof_instance_init_data (&p->inst, GNC_ID_PRICE, book);
     qof_event_gen (&p->inst, QOF_EVENT_CREATE, NULL);
-
+    LEAVE ("price created %p", p);
     return p;
 }
 
 static void
 gnc_price_destroy (GNCPrice *p)
 {
-    ENTER(" ");
+    ENTER("destroy price %p", p);
     qof_event_gen (&p->inst, QOF_EVENT_DESTROY, NULL);
 
     if (p->type) CACHE_REMOVE(p->type);
@@ -372,14 +373,14 @@ gnc_price_clone (GNCPrice* p, QofBook *book)
 
     if (!p)
     {
-        LEAVE (" ");
+        LEAVE ("return NULL");
         return NULL;
     }
 
     new_p = gnc_price_create(book);
     if (!new_p)
     {
-        LEAVE (" ");
+        LEAVE ("return NULL");
         return NULL;
     }
 
@@ -394,7 +395,7 @@ gnc_price_clone (GNCPrice* p, QofBook *book)
     gnc_price_set_value(new_p, gnc_price_get_value(p));
     gnc_price_set_currency(new_p, gnc_price_get_currency(p));
     gnc_price_commit_edit(new_p);
-    LEAVE (" ");
+    LEAVE ("return cloned price %p", new_p);
     return(new_p);
 }
 
@@ -838,6 +839,7 @@ QOF_GOBJECT_IMPL(gnc_pricedb, GNCPriceDB, QOF_TYPE_INSTANCE);
 static void
 gnc_pricedb_init(GNCPriceDB* pdb)
 {
+    pdb->reset_nth_price_cache = FALSE;
 }
 
 static void
@@ -1801,7 +1803,7 @@ GNCPrice *gnc_pricedb_lookup_latest(GNCPriceDB *db,
     result = price_list->data;
     gnc_price_ref(result);
     g_list_free (price_list);
-    LEAVE(" ");
+    LEAVE("price is %p", result);
     return result;
 }
 
@@ -2201,8 +2203,12 @@ gnc_pricedb_nth_price (GNCPriceDB *db,
     if (!db || !c || n < 0) return NULL;
     ENTER ("db=%p commodity=%s index=%d", db, gnc_commodity_get_mnemonic(c), n);
 
-    if (last_c && prices && last_c == c)
-        return g_list_nth_data (prices, n);
+    if (last_c && prices && last_c == c && db->reset_nth_price_cache == FALSE)
+    {
+        result = g_list_nth_data (prices, n);
+        LEAVE ("price=%p", result);
+        return result;
+    }
 
     last_c = c;
 
@@ -2211,6 +2217,8 @@ gnc_pricedb_nth_price (GNCPriceDB *db,
         g_list_free (prices);
         prices = NULL;
     }
+
+    db->reset_nth_price_cache = FALSE;
 
     currency_hash = g_hash_table_lookup (db->commodity_hash, c);
     if (currency_hash)
@@ -2223,6 +2231,13 @@ gnc_pricedb_nth_price (GNCPriceDB *db,
 
     LEAVE ("price=%p", result);
     return result;
+}
+
+void
+gnc_pricedb_nth_price_reset_cache (GNCPriceDB *db)
+{
+    if (db)
+        db->reset_nth_price_cache = TRUE;
 }
 
 GNCPrice *
@@ -2255,6 +2270,7 @@ gnc_pricedb_lookup_at_time64(GNCPriceDB *db,
         {
             gnc_price_ref(p);
             g_list_free (price_list);
+            LEAVE("price is %p", p);
             return p;
         }
         item = item->next;

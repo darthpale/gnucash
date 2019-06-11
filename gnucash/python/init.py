@@ -75,6 +75,10 @@ class Console (cons.Console):
         """ Button press event """
         return self.refresh()
 
+    def quit_event (self, widget, event):
+        """ Event handler for closing of console window """
+        return self.quit()
+    
     def refresh (self):
         """ Refresh drawing """
         for fig in self.figures:
@@ -82,20 +86,29 @@ class Console (cons.Console):
             canvas.draw()
         return False
 
+    def quit (self):
+        """ quit """
+
+        self.write("\nHave a nice day !\n")
+        return super(Console, self).quit()
+
 
 # Change this to "if True:" to switch on a python console at gnucash
 # startup:
+# shelltype can either be "python" or "ipython" (the latter is not yet fully functional)
 if False:
-    console = Console(argv = [], shelltype = 'python', banner = [['woop', 'title']], size = 100)
+    shelltype = "python"
+    title = "gnucash "+shelltype+" shell"
+    banner_style = 'title'
+    banner = "Welcome to "+title+"!\n"
+    console = Console(argv = [], shelltype = shelltype, banner = [[banner, banner_style]], size = 100)
 
-    window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+    window = Gtk.Window(type = Gtk.WindowType.TOPLEVEL)
     window.set_position(Gtk.WindowPosition.CENTER)
     window.set_default_size(800,600)
     window.set_border_width(0)
-    # Hm. Gtk.main_quit will kill gnucash without closing the file
-    # properly. That's kinda bad.
-    window.connect('destroy-event', Gtk.main_quit)
-    window.connect('delete-event', Gtk.main_quit)
+    window.connect('destroy-event', console.quit_event)
+    window.connect('delete-event', console.quit_event)
     window.add (console)
     window.show_all()
     console.grab_focus()

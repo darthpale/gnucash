@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.4 -->
+<!-- Generated with glade 3.22.1 -->
 <interface>
   <requires lib="gtk+" version="3.10"/>
   <object class="GtkImage" id="account_new_icon">
@@ -29,7 +29,7 @@
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="newbutton">
-                <property name="label">New _Account...</property>
+                <property name="label" translatable="yes">New _Account...</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="can_default">True</property>
@@ -83,16 +83,83 @@
           </packing>
         </child>
         <child>
-          <placeholder/>
+          <object class="GtkLabel" id="label847715">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">Please select or create an appropriate GnuCash account for:</property>
+            <property name="justify">center</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
         </child>
         <child>
-          <placeholder/>
+          <object class="GtkLabel" id="online_id_label">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">Online account ID here...</property>
+            <property name="justify">center</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">1</property>
+          </packing>
         </child>
         <child>
-          <placeholder/>
+          <object class="GtkBox" id="placeholder_warning_hbox">
+            <property name="can_focus">False</property>
+            <property name="margin_left">6</property>
+            <property name="margin_right">6</property>
+            <property name="margin_top">6</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkImage" id="placeholder_warning_image">
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="stock">gtk-dialog-warning</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="placeholder_warning_label">
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="wrap">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">2</property>
+          </packing>
         </child>
         <child>
-          <placeholder/>
+          <object class="GtkScrolledWindow" id="account_tree_sw">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">4</property>
+          </packing>
         </child>
       </object>
     </child>
@@ -101,51 +168,6 @@
       <action-widget response="-6">cancelbutton</action-widget>
       <action-widget response="-5">okbutton</action-widget>
     </action-widgets>
-  </object>
-  <object class="GtkBox" id="account_picker_content">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="orientation">vertical</property>
-    <child>
-      <object class="GtkLabel" id="label847715">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Please select or create an appropriate GnuCash account for:</property>
-        <property name="justify">center</property>
-      </object>
-      <packing>
-        <property name="expand">False</property>
-        <property name="fill">False</property>
-        <property name="position">0</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkLabel" id="online_id_label">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Online account ID here...</property>
-        <property name="justify">center</property>
-      </object>
-      <packing>
-        <property name="expand">False</property>
-        <property name="fill">False</property>
-        <property name="position">1</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkScrolledWindow" id="account_tree_sw">
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <child>
-          <placeholder/>
-        </child>
-      </object>
-      <packing>
-        <property name="expand">True</property>
-        <property name="fill">True</property>
-        <property name="position">2</property>
-      </packing>
-    </child>
   </object>
   <object class="GtkAdjustment" id="atm_fee_adj">
     <property name="upper">1000</property>
@@ -728,8 +750,7 @@
     <property name="text" translatable="yes">This transaction requires your intervention or it will NOT be imported.</property>
   </object>
   <object class="GtkTextBuffer" id="textbuffer5">
-    <property name="text" translatable="yes">Double click on the transaction to change the matching transaction to reconcile, or the destination account of the auto-balance split (if required).
-Multiply select rows using Ctrl-Click, Shift-Click and Rubber banding . Right-Click or Shift-F10 to bring up popup menu and click or select to assign a destination account to the selected rows.</property>
+    <property name="text" translatable="yes">Double click on the transaction to change the matching transaction to reconcile, or the destination account of the auto-balance split (if required).</property>
   </object>
   <object class="GtkDialog" id="matcher_help_dialog">
     <property name="can_focus">False</property>
@@ -779,7 +800,6 @@ Multiply select rows using Ctrl-Click, Shift-Click and Rubber banding . Right-Cl
           <object class="GtkGrid" id="table1">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="margin_bottom">42</property>
             <property name="row_spacing">6</property>
             <property name="column_spacing">12</property>
             <child>
@@ -1006,7 +1026,6 @@ Multiply select rows using Ctrl-Click, Shift-Click and Rubber banding . Right-Cl
                   <object class="GtkTextView" id="textview5">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="margin_bottom">2</property>
                     <property name="pixels_above_lines">5</property>
                     <property name="pixels_below_lines">5</property>
                     <property name="editable">False</property>
@@ -1140,9 +1159,6 @@ Multiply select rows using Ctrl-Click, Shift-Click and Rubber banding . Right-Cl
       </packing>
     </child>
     <child>
-      <placeholder/>
-    </child>
-    <child>
       <object class="GtkCheckButton" id="show_source_account_button">
         <property name="label" translatable="yes">Show the Source Account column</property>
         <property name="visible">True</property>
@@ -1241,9 +1257,9 @@ Multiply select rows using Ctrl-Click, Shift-Click and Rubber banding . Right-Cl
       </object>
     </child>
     <action-widgets>
+      <action-widget response="-11">matcher__help</action-widget>
       <action-widget response="-6">matcher_cancel</action-widget>
       <action-widget response="-5">matcher_ok</action-widget>
-      <action-widget response="-11">matcher__help</action-widget>
     </action-widgets>
   </object>
 </interface>

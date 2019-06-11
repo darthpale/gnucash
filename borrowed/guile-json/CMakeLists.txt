@@ -10,9 +10,15 @@ gnc_add_scheme_targets (guile-json
 set_local_dist(guile-json_DIST_LOCAL
   AUTHORS
   CMakeLists.txt
+<<<<<<< HEAD
+||||||| merged common ancestors
+  COPYING.LESSER
+=======
+  COPYING
+>>>>>>> official/maint
   json.scm
   NEWS
-  README
+  README.org
 )
 
 set(guile-json_DIST ${guile-json_DIST_LOCAL} ${guile-json-details_DIST} PARENT_SCOPE)
