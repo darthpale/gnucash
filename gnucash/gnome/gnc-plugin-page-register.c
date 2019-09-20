@@ -175,6 +175,7 @@ static void gnc_plugin_page_register_cmd_reinitialize_transaction (GtkAction *ac
 static void gnc_plugin_page_register_cmd_expand_transaction (GtkToggleAction *action, GncPluginPageRegister *plugin_page);
 static void gnc_plugin_page_register_cmd_exchange_rate (GtkAction *action, GncPluginPageRegister *plugin_page);
 static void gnc_plugin_page_register_cmd_jump (GtkAction *action, GncPluginPageRegister *plugin_page);
+static void gnc_plugin_page_register_cmd_reload (GtkAction *action, GncPluginPageRegister *plugin_page);
 static void gnc_plugin_page_register_cmd_schedule (GtkAction *action, GncPluginPageRegister *plugin_page);
 static void gnc_plugin_page_register_cmd_scrub_all (GtkAction *action, GncPluginPageRegister *plugin_page);
 static void gnc_plugin_page_register_cmd_scrub_current (GtkAction *action, GncPluginPageRegister *plugin_page);
@@ -348,6 +349,11 @@ static GtkActionEntry gnc_plugin_page_register_actions [] =
     {
         "ViewFilterByAction", NULL, N_("_Filter By..."), NULL, NULL,
         G_CALLBACK (gnc_plugin_page_register_cmd_view_filter_by)
+    },
+    {
+        "ViewRefreshAction", "view-refresh", N_("_Refresh"), "<primary>r",
+        N_("Refresh this window"),
+        G_CALLBACK (gnc_plugin_page_register_cmd_reload)
     },
 
     /* Actions menu */
@@ -591,7 +597,7 @@ typedef struct GncPluginPageRegisterPrivate
 G_DEFINE_TYPE_WITH_PRIVATE(GncPluginPageRegister, gnc_plugin_page_register, GNC_TYPE_PLUGIN_PAGE)
 
 #define GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(o)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GNC_TYPE_PLUGIN_PAGE_REGISTER, GncPluginPageRegisterPrivate))
+   ((GncPluginPageRegisterPrivate*)g_type_instance_get_private((GTypeInstance*)o, GNC_TYPE_PLUGIN_PAGE_REGISTER))
 
 static GObjectClass *parent_class = NULL;
 
@@ -929,13 +935,15 @@ gnc_plugin_page_register_ui_update (gpointer various, GncPluginPageRegister *pag
     GncPluginPageRegisterPrivate *priv;
     SplitRegister *reg;
     GtkAction *action;
-    gboolean expanded, voided;
+    gboolean expanded, voided, read_only = FALSE;
     Transaction *trans;
+    CursorClass cursor_class;
     const char *uri;
 
     /* Set 'Split Transaction' */
     priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(page);
     reg = gnc_ledger_display_get_split_register(priv->ledger);
+    cursor_class = gnc_split_register_get_current_cursor_class (reg);
     expanded = gnc_split_register_current_trans_expanded(reg);
     action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
                                          "SplitTransactionAction");
@@ -946,12 +954,50 @@ gnc_plugin_page_register_ui_update (gpointer various, GncPluginPageRegister *pag
     g_signal_handlers_unblock_by_func
     (action, gnc_plugin_page_register_cmd_expand_transaction, page);
 
-    /* Set 'Void' and 'Unvoid' */
-    trans = gnc_split_register_get_current_trans(reg);
+    /* Set available actions based on read only */
+    trans = gnc_split_register_get_current_trans (reg);
+
+    if (trans)
+        read_only = xaccTransIsReadonlyByPostedDate (trans);
     voided = xaccTransHasSplitsInState(trans, VREC);
+
+    action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                         "CutTransactionAction");
+    gtk_action_set_sensitive (GTK_ACTION(action), !read_only & !voided);
+
+    action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                         "PasteTransactionAction");
+    gtk_action_set_sensitive (GTK_ACTION(action), !read_only & !voided);
+
+    action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                         "DeleteTransactionAction");
+    gtk_action_set_sensitive (GTK_ACTION(action), !read_only & !voided);
+
+    action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                         "DuplicateTransactionAction");
+    gtk_action_set_sensitive (GTK_ACTION(action), TRUE);
+
+    if (cursor_class == CURSOR_CLASS_SPLIT)
+    {
+        action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                             "DuplicateTransactionAction");
+        gtk_action_set_sensitive (GTK_ACTION(action), !read_only & !voided);
+    }
+
+    action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
+                                         "RemoveTransactionSplitsAction");
+    gtk_action_set_sensitive (GTK_ACTION(action), !read_only & !voided);
+
+    /* Set 'Void' and 'Unvoid' */
+    if (read_only)
+        voided = TRUE;
+
     action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
                                          "VoidTransactionAction");
     gtk_action_set_sensitive (GTK_ACTION(action), !voided);
+
+    if (read_only)
+        voided = FALSE;
 
     action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
                                          "UnvoidTransactionAction");
@@ -981,7 +1027,6 @@ gnc_plugin_page_register_ui_update (gpointer various, GncPluginPageRegister *pag
     {
         const char **iter, **label_iter, **tooltip_iter;
         gboolean curr_label_trans = FALSE;
-        CursorClass cursor_class = gnc_split_register_get_current_cursor_class (reg);
         iter = tran_vs_split_actions;
         action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page), *iter);
         label_iter = tran_action_labels;
@@ -1249,7 +1294,7 @@ gnc_plugin_page_register_create_widget (GncPluginPage *plugin_page)
     gnc_ppr_update_status_query (page);
     gnc_ppr_update_date_query (page);
 
-    /* Now do the refresh if this is a new page instaed of restore */
+    /* Now do the refresh if this is a new page instead of restore */
     if (create_new_page)
     {
         priv->enable_refresh = TRUE;
@@ -2729,7 +2774,7 @@ get_filter_times(GncPluginPageRegister *page)
  *  function is responsible for setting the sensitivity of the widgets
  *  controlled by each radio button choice and updating the time
  *  limitation on the register query. This is handled by a helper
- *  function as potentialy all widgets will need to be examined.
+ *  function as potentially all widgets will need to be examined.
  *
  *  @param button A pointer to the "select range" radio button.
  *
@@ -2780,7 +2825,7 @@ gnc_plugin_page_register_filter_select_range_cb (GtkRadioButton *button,
 /** This function is called when the "number of days" spin button is
  *  changed which is then saved and updates the time limitation on
  *  the register query. This is handled by a helper function as
- *  potentialy all widgets will need to be examined.
+ *  potentially all widgets will need to be examined.
  *
  *  @param button A pointer to the "number of days" spin button.
  *
@@ -3543,17 +3588,16 @@ gnc_plugin_page_register_cmd_find_transactions (GtkAction *action,
 
 static void
 gnc_plugin_page_register_cmd_cut_transaction (GtkAction *action,
-        GncPluginPageRegister *page)
+        GncPluginPageRegister *plugin_page)
 {
     GncPluginPageRegisterPrivate *priv;
-    SplitRegister *reg;
 
-    g_return_if_fail(GNC_IS_PLUGIN_PAGE_REGISTER(page));
+    ENTER("(action %p, plugin_page %p)", action, plugin_page);
 
-    ENTER("(action %p, page %p)", action, page);
-    priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(page);
-    reg = gnc_ledger_display_get_split_register(priv->ledger);
-    gnc_split_register_cut_current(reg);
+    g_return_if_fail(GNC_IS_PLUGIN_PAGE_REGISTER(plugin_page));
+
+    priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(plugin_page);
+    gsr_default_cut_txn_handler (priv->gsr, NULL);
     LEAVE(" ");
 }
 
@@ -3793,7 +3837,7 @@ gnc_plugin_page_register_cmd_view_sort_by (GtkAction *action,
     if (priv->sd.save_order == TRUE)
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
 
-    // hide the save button if appropiate
+    // hide the save button if appropriate
     gtk_widget_set_visible (GTK_WIDGET(button),
         gnc_plugin_page_register_show_fs_save (page));
 
@@ -3878,7 +3922,7 @@ gnc_plugin_page_register_cmd_view_filter_by (GtkAction *action,
     if (priv->fd.save_filter == TRUE)
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
 
-    // hide the save button if appropiate
+    // hide the save button if appropriate
     gtk_widget_set_visible (GTK_WIDGET(button),
         gnc_plugin_page_register_show_fs_save (page));
 
@@ -4002,6 +4046,29 @@ gnc_plugin_page_register_cmd_view_filter_by (GtkAction *action,
     /* Show it */
     gtk_widget_show(dialog);
     g_object_unref(G_OBJECT(builder));
+    LEAVE(" ");
+}
+
+static void
+gnc_plugin_page_register_cmd_reload (GtkAction *action, GncPluginPageRegister *plugin_page)
+{
+    GncPluginPageRegisterPrivate *priv;
+    SplitRegister *reg;
+
+    ENTER("(action %p, page %p)", action, plugin_page);
+
+    g_return_if_fail (GNC_IS_PLUGIN_PAGE_REGISTER (plugin_page));
+
+    priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE (plugin_page);
+    reg = gnc_ledger_display_get_split_register (priv->ledger);
+
+    /* Check for trans being edited */
+    if (gnc_split_register_changed (reg))
+    {
+        LEAVE("register has pending edits");
+        return;
+    }
+    gnc_ledger_display_refresh (priv->ledger);
     LEAVE(" ");
 }
 
@@ -4722,7 +4789,7 @@ gnc_plugin_page_register_close_cb (gpointer user_data)
 
 /** This function is called when an account has been edited and an
  *  "extreme" change has been made to it.  (E.G. Changing from a
- *  credit card account to an expense account.  This rouine is
+ *  credit card account to an expense account.  This routine is
  *  responsible for finding all open registers containing the account
  *  and closing them.
  *

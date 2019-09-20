@@ -106,7 +106,7 @@
 (export gnc:assign-colors)
 (export gnc:html-table-append-ruler!)
 (export gnc:html-table-append-ruler/markup!)
-(export gnc:html-acct-table-cell)
+(export gnc:html-acct-table-cell)       ;deprecated
 (export gnc:html-acct-table-row-helper! )
 (export gnc:html-acct-table-comm-row-helper!)
 (export gnc:html-build-acct-table)
@@ -686,7 +686,8 @@
 (export gnc:account-get-type-string-plural)
 (export gnc:accounts-get-commodities)
 (export gnc:get-current-account-tree-depth)
-(export gnc:acccounts-get-all-subaccounts)
+(export gnc:accounts-and-all-descendants)
+(export gnc:acccounts-get-all-subaccounts) ;deprecated
 (export gnc:make-stats-collector)       ;deprecated
 (export gnc:make-drcr-collector)        ;deprecated
 (export gnc:make-value-collector)
@@ -743,6 +744,8 @@
 (export make-file-url)
 (export gnc:strify)
 (export gnc:pk)
+(export gnc:dump-book)
+(export gnc:dump-invoices)
 
 ;; trep-engine.scm
 (export gnc:trep-options-generator)

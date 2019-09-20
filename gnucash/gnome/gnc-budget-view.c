@@ -170,7 +170,7 @@ struct GncBudgetViewPrivate
 G_DEFINE_TYPE_WITH_PRIVATE(GncBudgetView, gnc_budget_view, GTK_TYPE_BOX)
 
 #define GNC_BUDGET_VIEW_GET_PRIVATE(o)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE((o), GNC_TYPE_BUDGET_VIEW, GncBudgetViewPrivate))
+   ((GncBudgetViewPrivate*)g_type_instance_get_private((GTypeInstance*)o, GNC_TYPE_BUDGET_VIEW))
 
 /** \brief Create new gnc budget view.
 
@@ -880,7 +880,7 @@ budget_accum_helper(Account* account, gpointer data)
 
 /** \brief Function to calculate the accumulated budget amount in a given account at a specified period number.
 
-This function uses the \ref budget_accum_helper to calculate the accumulated budget amount in a given budget account for a specified period number. If the acocunt does not have children, then it simply returns the balance of the account.
+This function uses the \ref budget_accum_helper to calculate the accumulated budget amount in a given budget account for a specified period number. If the account does not have children, then it simply returns the balance of the account.
 */
 static gnc_numeric
 gbv_get_accumulated_budget_amount(GncBudget* budget, Account* account, guint period_num)
@@ -1227,7 +1227,7 @@ gbv_refresh_col_titles(GncBudgetView *view)
     GtkTreeViewColumn *col;
     guint titlelen;
     gint num_periods_visible;
-    gchar title[MAX_DATE_LENGTH];
+    gchar title[MAX_DATE_LENGTH + 1];
     GList *col_list;
     gint i;
 
@@ -1420,7 +1420,7 @@ gnc_budget_view_refresh(GncBudgetView *view)
 
     if (priv->total_col == NULL)
     {
-        gchar title[MAX_DATE_LENGTH];
+        gchar title[MAX_DATE_LENGTH + 1];
         guint titlelen;
         GDate *date;
         GtkCellRenderer* renderer;

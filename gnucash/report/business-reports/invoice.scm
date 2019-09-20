@@ -105,7 +105,7 @@
           (_ "Total"))))
 
 (define (monetary-or-percent numeric currency entry-type)
-  (if (gnc:entry-type-percent-p entry-type)
+  (if (eqv? entry-type GNC-AMT-TYPE-PERCENT)
       (string-append (gnc:default-html-gnc-numeric-renderer numeric #f) " " (_ "%"))
       (gnc:make-gnc-monetary currency numeric)))
 
@@ -344,7 +344,7 @@ for styling the invoice. Please see the exported report for the CSS class names.
   (gnc:register-inv-option
    (gnc:make-simple-boolean-option
     (N_ "Display") (N_ "Payments")
-    "tc" (N_ "Display the payments applied to this invoice?") #f))
+    "tc" (N_ "Display the payments applied to this invoice?") #t))
 
   (gnc:register-inv-option
    (gnc:make-simple-boolean-option
@@ -930,6 +930,8 @@ for styling the invoice. Please see the exported report for the CSS class names.
  'in-menu? #t)
 
 (define (gnc:easy-invoice-report-create-internal invoice)
+  (issue-deprecation-warning
+   "gnc:easy-invoice-report-create-internal is unused")
   (let* ((options (gnc:make-report-options easy-invoice-guid))
          (invoice-op (gnc:lookup-option options gnc:pagename-general gnc:optname-invoice-number)))
     (gnc:option-set-value invoice-op invoice)
@@ -937,6 +939,8 @@ for styling the invoice. Please see the exported report for the CSS class names.
 (export gnc:easy-invoice-report-create-internal)
 
 (define (gnc:fancy-invoice-report-create-internal invoice)
+  (issue-deprecation-warning
+   "gnc:fancy-invoice-report-create-internal is unused")
   (let* ((options (gnc:make-report-options fancy-invoice-guid))
          (invoice-op (gnc:lookup-option options gnc:pagename-general gnc:optname-invoice-number)))
     (gnc:option-set-value invoice-op invoice)

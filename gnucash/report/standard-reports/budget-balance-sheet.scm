@@ -250,7 +250,7 @@
 ;; requested, export it to a file
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (budget-balance-sheet-renderer report-obj choice filename)
+(define (budget-balance-sheet-renderer report-obj)
   (define (get-option pagename optname)
     (gnc:option-value
      (gnc:lookup-option 
@@ -330,10 +330,9 @@
          (parent-balance-mode (get-option gnc:pagename-display
                                            optname-parent-balance-mode))
          (parent-total-mode
-	  (car
-	   (assoc-ref '((t #t) (f #f) (canonically-tabbed canonically-tabbed))
-		      (get-option gnc:pagename-display
-				  optname-parent-total-mode))))
+	  (assq-ref '((t . #t) (f . #f) (canonically-tabbed . canonically-tabbed))
+		    (get-option gnc:pagename-display
+				optname-parent-total-mode)))
          (show-zb-accts? (get-option gnc:pagename-display
 				     optname-show-zb-accts))
          (omit-zb-bals? (get-option gnc:pagename-display
@@ -900,16 +899,7 @@
                doc ;;(gnc:html-markup-p)
                (gnc:html-make-exchangerates 
                 report-commodity exchange-fn accounts)))
-	  (gnc:report-percent-done 100)
-	  
-	  ;; if sending the report to a file, do so now
-	  ;; however, this still doesn't seem to get around the
-	  ;; colspan bug... cf. gnc:colspans-are-working-right
-	  (if filename
-	      (let* ((port (open-output-file filename)))
-                (gnc:display-report-list-item
-                 (list doc) port " budget-balance-sheet.scm ")
-                (close-output-port port)))))))
+	  (gnc:report-percent-done 100)))))
     
     (gnc:report-finished)
     
@@ -921,8 +911,4 @@
  'report-guid "ecc35ea9dbfa4e20ba389fc85d59cb69"
  'menu-path (list gnc:menuname-budget)
  'options-generator budget-balance-sheet-options-generator
- 'renderer (lambda (report-obj)
-	     (budget-balance-sheet-renderer report-obj #f #f))
- 'export-types #f
- 'export-thunk (lambda (report-obj choice filename)
-		 (budget-balance-sheet-renderer report-obj #f filename)))
+ 'renderer budget-balance-sheet-renderer)

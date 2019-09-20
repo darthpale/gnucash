@@ -716,10 +716,7 @@ gnc_set_default_gain_loss_account_widget(gnc_commodity *commodity)
                 col = gnc_tree_view_add_toggle_column(GNC_TREE_VIEW(
                         book_currency_data->default_gain_loss_account_widget),
                         _("Placeholder"),
-                        /* Translators: This string has a context prefix; the
-                           translation must only contain the part after
-                           the | character. */
-                        Q_("Column letter for 'Placeholder'|P"),
+                        C_("Column header for 'Placeholder'", "P"),
                         "placeholder",
                         GNC_TREE_MODEL_ACCOUNT_COL_PLACEHOLDER,
                         GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS,
@@ -1212,7 +1209,7 @@ gnc_option_create_currency_accounting_widget (char *name, GNCOption *option)
     gtk_widget_set_halign (GTK_WIDGET(frame), GTK_ALIGN_FILL);
     gtk_widget_set_hexpand (GTK_WIDGET(frame), TRUE);
 
-    /* Create the verticle button box */
+    /* Create the vertical button box */
     vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
     gtk_box_set_homogeneous (GTK_BOX (vbox), FALSE);
     gtk_container_add (GTK_CONTAINER (frame), vbox);
@@ -2710,9 +2707,8 @@ gnc_option_set_ui_widget_account_sel (GNCOption *option, GtkBox *page_box,
                      G_CALLBACK(gnc_option_changed_widget_cb), option);
 
     gnc_option_set_widget (option, value);
-    /* DOCUMENT ME: Why is the only option type that sets use_default to
-       TRUE? */
-    gnc_option_set_ui_value(option, TRUE);
+
+    gnc_option_set_ui_value(option, FALSE);
 
     *enclosing = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_box_set_homogeneous (GTK_BOX (*enclosing), FALSE);
@@ -3235,8 +3231,8 @@ gnc_option_set_ui_value_text (GNCOption *option, gboolean use_default,
         const gchar *string;
 
         string = gnc_scm_to_utf8_string (value);
-        gtk_text_buffer_set_text (buffer, string, scm_c_string_length(value));
-        g_free ((gpointer *) string);
+        gtk_text_buffer_set_text (buffer, string, -1);
+        free ((void*) string);
         return FALSE;
     }
     else

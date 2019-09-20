@@ -282,7 +282,7 @@ void gnc_ui_qif_import_summary_page_prepare (GtkAssistant *assistant, gpointer u
  * generalizes the code shared whenever any QIF -> GNC mapper is
  * updating it's LIST STORE.  It asks the Scheme side to guess some account
  * translations and then shows the account name and suggested
- * translation in the Accounts page view (acount picker list).
+ * translation in the Accounts page view (account picker list).
  ****************************************************************/
 static void
 update_account_picker_page (QIFImportWindow * wind, SCM make_display,
@@ -347,7 +347,7 @@ update_account_picker_page (QIFImportWindow * wind, SCM make_display,
 
     gtk_tree_selection_select_path (selection, path);
 
-    /* scroll the tree view so the selection is visable if there are rows */
+    /* scroll the tree view so the selection is visible if there are rows */
     if (gtk_tree_model_iter_n_children (GTK_TREE_MODEL(store), NULL) > 0)
         gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW(view), path, NULL, TRUE, 0.5, 0.0);
     gtk_tree_path_free (path);
@@ -1111,7 +1111,8 @@ gnc_ui_qif_import_convert_undo (QIFImportWindow * wind)
 
     /* Undo the conversion. */
     if (wind->imported_account_tree != SCM_BOOL_F)
-        gfec_apply (undo, wind->imported_account_tree, _gfec_error_handler);
+        gfec_apply (undo, scm_list_1 (wind->imported_account_tree),
+                    _gfec_error_handler);
 
     /* There's no imported account tree any more. */
     scm_gc_unprotect_object (wind->imported_account_tree);
@@ -1185,7 +1186,7 @@ refresh_old_transactions (QIFImportWindow * wind, int selection)
             }
 
             gtk_list_store_append (store, &iter);
-            qof_print_date_buff (datebuff, sizeof (datebuff),
+            qof_print_date_buff (datebuff, MAX_DATE_LENGTH,
                                 xaccTransRetDatePosted (gnc_xtn));
             gtk_list_store_set
             (store, &iter,
@@ -2448,7 +2449,7 @@ gnc_ui_qif_import_account_rematch_cb (GtkButton *button, gpointer user_data)
 
 
 /*******************************************
- * Page 8 - Catagory Doc. Page Procedures
+ * Page 8 - Category Doc. Page Procedures
  *******************************************/
 
 /********************************************************************
@@ -2484,7 +2485,7 @@ gnc_ui_qif_import_catagory_doc_prepare (GtkAssistant *assistant,
 
 
 /******************************************
- * Page 9 - Catagory Match Page Procedures
+ * Page 9 - Category Match Page Procedures
  ******************************************/
 
 /****************************************************************
@@ -3303,7 +3304,7 @@ gnc_ui_qif_import_duplicates_match_prepare (GtkAssistant *assistant,
             gdouble amount_gd = 0;
             time64 send_time = 0;
             char datebuff [MAX_DATE_LENGTH + 1];
-            memset (datebuff, 0, sizeof (datebuff));
+            memset (datebuff, 0, MAX_DATE_LENGTH);
             current_xtn = SCM_CAAR(duplicates);
 #define FUNC_NAME "xaccTransCountSplits"
             gnc_xtn = SWIG_MustGetPtr (current_xtn,
@@ -3322,7 +3323,7 @@ gnc_ui_qif_import_duplicates_match_prepare (GtkAssistant *assistant,
             }
             gtk_list_store_append (store, &iter);
             send_time = xaccTransRetDatePosted (gnc_xtn);
-            qof_print_date_buff (datebuff, sizeof (datebuff), send_time);
+            qof_print_date_buff (datebuff, MAX_DATE_LENGTH, send_time);
             gtk_list_store_set
             (store, &iter,
              QIF_TRANS_COL_INDEX, rownum++,
@@ -3509,12 +3510,12 @@ void gnc_ui_qif_import_prepare_cb (GtkAssistant  *assistant, GtkWidget *page,
     }
     else if (!g_strcmp0 (pagename, "category_doc_page"))
     {
-        /* Current page is Catagory Doc. page */
+        /* Current page is Category Doc. page */
         gnc_ui_qif_import_catagory_doc_prepare (assistant, user_data);
     }
     else if (!g_strcmp0 (pagename, "category_match_page"))
     {
-        /* Current page is Catagory Match page */
+        /* Current page is Category Match page */
         gnc_ui_qif_import_catagory_match_prepare (assistant, user_data);
     }
     else if (!g_strcmp0 (pagename, "memo_doc_page"))

@@ -555,7 +555,7 @@ typedef struct GncPluginPageRegister2Private
 } GncPluginPageRegister2Private;
 
 #define GNC_PLUGIN_PAGE_REGISTER2_GET_PRIVATE(o)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GNC_TYPE_PLUGIN_PAGE_REGISTER2, GncPluginPageRegister2Private))
+   ((GncPluginPageRegister2Private*)g_type_instance_get_private((GTypeInstance*)o, GNC_TYPE_PLUGIN_PAGE_REGISTER2))
 
 static GObjectClass *parent_class = NULL;
 
@@ -3929,7 +3929,7 @@ gnc_plugin_page_register2_close_cb (gpointer user_data)
 
 /** This function is called when an account has been edited and an
  *  "extreme" change has been made to it.  (E.G. Changing from a
- *  credit card account to an expense account.  This rouine is
+ *  credit card account to an expense account.  This routine is
  *  responsible for finding all open registers containing the account
  *  and closing them.
  *

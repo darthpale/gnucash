@@ -227,12 +227,12 @@
 (export gnc:reldate-get-string)
 (export gnc:reldate-get-desc)
 (export gnc:reldate-get-fn)
-(export gnc:make-reldate-hash)
-(export gnc:reldate-string-db)
-(export gnc:relative-date-values)
-(export gnc:relative-date-hash)
+(export gnc:make-reldate-hash)          ;deprecate
+(export gnc:reldate-string-db)          ;deprecate
+(export gnc:relative-date-values)       ;deprecate
+(export gnc:relative-date-hash)         ;deprecate
 (export gnc:get-absolute-from-relative-date)
-(export gnc:get-relative-date-strings)
+(export gnc:get-relative-date-strings)  ;deprecate
 (export gnc:get-relative-date-string)
 (export gnc:get-relative-date-desc)
 (export gnc:get-start-cal-year)
@@ -270,23 +270,23 @@
 (re-export HOOK-REPORT)
 
 ;; simple-obj
-(export make-simple-class)
-(export simple-obj-getter)
-(export simple-obj-setter)
-(export simple-obj-print)
-(export simple-obj-to-list)
-(export simple-obj-from-list)
-(export make-simple-obj)
+(export make-simple-class)              ;deprecate
+(export simple-obj-getter)              ;deprecate
+(export simple-obj-setter)              ;deprecate
+(export simple-obj-print)               ;deprecate
+(export simple-obj-to-list)             ;deprecate
+(export simple-obj-from-list)           ;deprecate
+(export make-simple-obj)                ;deprecate
 
 (define gnc:*kvp-option-path* (list KVP-OPTION-PATH))
 (export gnc:*kvp-option-path*)
 
 (load-from-path "c-interface")
 (load-from-path "options")
-(load-from-path "hooks")
+(load-from-path "hooks")                ;deprecate
 (load-from-path "prefs")
 (load-from-path "date-utilities")
-(load-from-path "simple-obj")
+(load-from-path "simple-obj")           ;deprecate
 
 ;; Business options
 (define gnc:*business-label* (N_ "Business"))

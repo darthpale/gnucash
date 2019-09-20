@@ -316,12 +316,12 @@
          (case info-type
            ((form) gnc:txf-get-form)
            ((desc) gnc:txf-get-description)
-           ((pns) gnc:txf-get-payer-name-sourcecategories)
-           ((format) gnc:txf-get-formatcategories)
-           ((multiple) gnc:txf-get-multiplecategories)
-           ((cat-key) gnc:txf-get-category-keycategories)
-           ((line) gnc:txf-get-line-datacategories)
-           ((last-yr) gnc:txf-get-last-yearcategories)
+           ((pns) gnc:txf-get-payer-name-source)
+           ((format) gnc:txf-get-format)
+           ((multiple) gnc:txf-get-multiple)
+           ((cat-key) gnc:txf-get-category-key)
+           ((line) gnc:txf-get-line-data)
+           ((last-yr) gnc:txf-get-last-year)
            (else #f))))
     (and categories
          get-info-fn
@@ -1657,7 +1657,7 @@
   ) ;;end of let*
 )
 
-;; Recursivly validate children if parent is not a tax account.
+;; Recursively validate children if parent is not a tax account.
 ;; Don't check children if parent is valid.
 ;; Returns the Parent if a child or grandchild is valid.
 (define (validate accounts)

@@ -921,6 +921,11 @@ gnc_split_register_paste_current (SplitRegister *reg)
     {
         const char *message = _("You are about to overwrite an existing split. "
                                 "Are you sure you want to do that?");
+        const char *anchor_message = _("This is the split anchoring this transaction "
+                                       "to the register. You may not overwrite it from "
+                                       "this register window. You may overwrite it if "
+                                       "you navigate to a register that shows another "
+                                       "side of this same transaction.");
 
         if (copied_class == CURSOR_CLASS_TRANS)
         {
@@ -929,12 +934,29 @@ gnc_split_register_paste_current (SplitRegister *reg)
             return;
         }
 
-        /* Ask before overwriting an existing split. */
-        if (split != NULL &&
-                !gnc_verify_dialog (GTK_WINDOW (gnc_split_register_get_parent (reg)),
-                                    FALSE, "%s", message))
+        if (split != NULL)
         {
-            LEAVE("user cancelled");
+            /* the General Journal does not have any anchoring splits */
+            if ((reg->type != GENERAL_JOURNAL) &&
+                split == gnc_split_register_get_current_trans_split (reg, NULL))
+            {
+                gnc_warning_dialog (GTK_WINDOW (gnc_split_register_get_parent (reg)),
+                                    "%s", anchor_message);
+                LEAVE("anchore split");
+                return;
+            }
+            else if (!gnc_verify_dialog (GTK_WINDOW (gnc_split_register_get_parent (reg)),
+                                         FALSE, "%s", message))
+            {
+                LEAVE("user cancelled");
+                return;
+            }
+        }
+
+        /* Open the transaction for editing. */
+        if (gnc_split_register_begin_edit_or_warn (info, trans))
+        {
+            LEAVE("can't begin editing");
             return;
         }
 
@@ -1040,7 +1062,7 @@ gnc_split_register_is_blank_split (SplitRegister *reg, Split *split)
 {
     SRInfo *info = gnc_split_register_get_info (reg);
     Split *current_blank_split = xaccSplitLookup (&info->blank_split_guid, gnc_get_current_book ());
-    
+
     if (split == current_blank_split)
         return TRUE;
 
@@ -1713,8 +1735,12 @@ gnc_split_register_save (SplitRegister *reg, gboolean do_commit)
           blank_split, blank_trans, pending_trans, trans);
 
     /* Act on any changes to the current cell before the save. */
-    (void) gnc_split_register_check_cell (reg,
-                                          gnc_table_get_current_cell_name (reg->table));
+    if (!gnc_split_register_check_cell (reg,
+            gnc_table_get_current_cell_name (reg->table)))
+    {
+        LEAVE("need another go at changing cell");
+        return FALSE;
+    }
 
     if (!gnc_split_register_auto_calc (reg, split))
     {
@@ -1743,7 +1769,7 @@ gnc_split_register_save (SplitRegister *reg, gboolean do_commit)
         // transaction ever not be the current trans?
         if (xaccTransIsOpen (pending_trans))
         {
-            g_warning("Impossible? commiting pending %p", pending_trans);
+            g_warning("Impossible? committing pending %p", pending_trans);
             xaccTransCommitEdit (pending_trans);
         }
         else if (pending_trans)
@@ -1923,6 +1949,10 @@ gnc_split_register_get_account_by_name (SplitRegister *reg, BasicCell * bcell,
     if (!account)
         account = gnc_account_lookup_by_code(gnc_get_current_root_account(), name);
 
+    /* if gnc_ui_new_accounts_from_name_window is used, there is a call to
+     * refresh which subsequently calls this function again, that's the
+     * reason for static creating_account. */
+
     if (!account && !creating_account)
     {
         /* Ask if they want to create a new one. */
@@ -1936,21 +1966,27 @@ gnc_split_register_get_account_by_name (SplitRegister *reg, BasicCell * bcell,
             return NULL;
     }
 
-    /* Now have the account. */
-    account_name = gnc_get_account_name_for_split_register (account, reg->show_leaf_accounts);
-    if (g_strcmp0(account_name, gnc_basic_cell_get_value(bcell)))
+    if (!creating_account)
     {
-        /* The name has changed. Update the cell. */
-        gnc_combo_cell_set_value (cell, account_name);
-        gnc_basic_cell_set_changed (&cell->cell, TRUE);
-    }
-    g_free (account_name);
+        /* Now have the account. */
+        account_name = gnc_get_account_name_for_split_register (account, reg->show_leaf_accounts);
+        if (g_strcmp0(account_name, gnc_basic_cell_get_value(bcell)))
+        {
+            /* The name has changed. Update the cell. */
+            gnc_combo_cell_set_value (cell, account_name);
+            gnc_basic_cell_set_changed (&cell->cell, TRUE);
+        }
+        g_free (account_name);
 
-    /* See if the account (either old or new) is a placeholder. */
-    if (xaccAccountGetPlaceholder (account))
-    {
-        gnc_error_dialog (GTK_WINDOW (gnc_split_register_get_parent (reg)),
-                          placeholder, name);
+        /* See if the account (either old or new) is a placeholder. */
+        if (account && xaccAccountGetPlaceholder (account))
+        {
+            gchar *fullname = gnc_account_get_full_name (account);
+            gnc_error_dialog (GTK_WINDOW (gnc_split_register_get_parent (reg)),
+                              placeholder, fullname);
+            g_free (fullname);
+            return NULL;
+        }
     }
 
     /* Be seeing you. */
@@ -2538,9 +2574,7 @@ gnc_split_register_config_action (SplitRegister *reg)
     case BANK_REGISTER:
         /* broken ! FIXME bg */
     case SEARCH_LEDGER:
-        /* Translators: This string has a context prefix; the translation
-        	must only contain the part after the | character. */
-        gnc_combo_cell_add_menu_item (cell, Q_("Action Column|Deposit"));
+        gnc_combo_cell_add_menu_item (cell, C_("Action Column", "Deposit"));
         gnc_combo_cell_add_menu_item (cell, _("Withdraw"));
         gnc_combo_cell_add_menu_item (cell, _("Check"));
         gnc_combo_cell_add_menu_item (cell, _("Interest"));
@@ -2639,8 +2673,7 @@ gnc_split_register_config_action (SplitRegister *reg)
         gnc_combo_cell_add_menu_item (cell, _("Income"));
         /* Action: Distribution */
         gnc_combo_cell_add_menu_item (cell, _("Dist"));
-        /* Translators: This string has a disambiguation prefix */
-        gnc_combo_cell_add_menu_item (cell, Q_("Action Column|Split"));
+        gnc_combo_cell_add_menu_item (cell, C_("Action Column", "Split"));
         break;
 
     default:

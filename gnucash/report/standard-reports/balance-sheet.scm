@@ -282,7 +282,7 @@
 ;; requested, export it to a file
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (balance-sheet-renderer report-obj choice filename)
+(define (balance-sheet-renderer report-obj)
   (define (get-option pagename optname)
     (gnc:option-value
      (gnc:lookup-option 
@@ -322,10 +322,9 @@
          (parent-balance-mode (get-option gnc:pagename-display
                                            optname-parent-balance-mode))
          (parent-total-mode
-	  (car
-	   (assoc-ref '((t #t) (f #f) (canonically-tabbed canonically-tabbed))
-		      (get-option gnc:pagename-display
-				  optname-parent-total-mode))))
+	  (assq-ref '((t . #t) (f . #f) (canonically-tabbed . canonically-tabbed))
+		    (get-option gnc:pagename-display
+				optname-parent-total-mode)))
          (show-zb-accts? (get-option gnc:pagename-display
 				     optname-show-zb-accts))
          (omit-zb-bals? (get-option gnc:pagename-display
@@ -406,11 +405,7 @@
 	 1 "total-number-cell")
 	)
       )
-    ;; (gnc:sum-collector-stocks balance report-commodity exchange-fn)
-    ;; Hey! Look at that! This rolls the stocks into the balance!
-    ;; Can anyone think of a reason why this would be desirable?
-    ;; None come to (my) mind.  Perhaps this should be a report option?
-    
+
     ;; Wrapper around gnc:html-table-append-ruler! since we call it so
     ;; often.
     (define (add-rule table)
@@ -730,16 +725,7 @@
                doc ;;(gnc:html-markup-p)
                (gnc:html-make-exchangerates 
                 report-commodity exchange-fn accounts)))
-	  (gnc:report-percent-done 100)
-	  
-	  ;; if sending the report to a file, do so now
-	  ;; however, this still doesn't seem to get around the
-	  ;; colspan bug... cf. gnc:colspans-are-working-right
-	  (if filename
-	      (let* ((port (open-output-file filename)))
-                (gnc:display-report-list-item
-                 (list doc) port " balance-sheet.scm ")
-                (close-output-port port)))))
+	  (gnc:report-percent-done 100)))
     
     (gnc:report-finished)
     
@@ -751,11 +737,7 @@
  'report-guid "c4173ac99b2b448289bf4d11c731af13"
  'menu-path (list gnc:menuname-asset-liability)
  'options-generator balance-sheet-options-generator
- 'renderer (lambda (report-obj)
-	     (balance-sheet-renderer report-obj #f #f))
- 'export-types #f
- 'export-thunk (lambda (report-obj choice filename)
-		 (balance-sheet-renderer report-obj #f filename)))
+ 'renderer balance-sheet-renderer)
 
 ;; END
 

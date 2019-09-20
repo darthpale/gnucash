@@ -162,9 +162,8 @@ gnc_commodity* parse_commodity (const std::string& comm_str)
     auto table = gnc_commodity_table_get_table (gnc_get_current_book());
     gnc_commodity* comm = nullptr;
 
-    /* First try commodity as a unique name. */
-    if (comm_str.find("::"))
-        comm = gnc_commodity_table_lookup_unique (table, comm_str.c_str());
+    /* First try commodity as a unique name, returns null if not found */
+    comm = gnc_commodity_table_lookup_unique (table, comm_str.c_str());
 
     /* Then try mnemonic in the currency namespace */
     if (!comm)
@@ -500,6 +499,55 @@ void GncPreSplit::reset (GncTransPropType prop_type)
         // Set with an empty string will effectively clear the property
         // but can also set an error for the property. Clear that error here.
         m_errors.erase(prop_type);
+    }
+}
+
+void GncPreSplit::add (GncTransPropType prop_type, const std::string& value)
+{
+    try
+    {
+        // Drop any existing error for the prop_type we're about to add to
+        m_errors.erase(prop_type);
+
+        Account *acct = nullptr;
+        auto num_val = GncNumeric();
+        switch (prop_type)
+        {
+            case GncTransPropType::DEPOSIT:
+                num_val = parse_amount (value, m_currency_format); // Will throw if parsing fails
+                if (m_deposit)
+                    num_val += *m_deposit;
+                m_deposit = num_val;
+                break;
+
+            case GncTransPropType::WITHDRAWAL:
+                num_val = parse_amount (value, m_currency_format); // Will throw if parsing fails
+                if (m_withdrawal)
+                    num_val += *m_withdrawal;
+                m_withdrawal = num_val;
+                break;
+
+            default:
+                /* Issue a warning for all other prop_types. */
+                PWARN ("%d can't be used to add values in a split", static_cast<int>(prop_type));
+                break;
+        }
+    }
+    catch (const std::invalid_argument& e)
+    {
+        auto err_str = std::string(_(gnc_csv_col_type_strs[prop_type])) +
+        std::string(_(" could not be understood.\n")) +
+        e.what();
+        m_errors.emplace(prop_type, err_str);
+        throw std::invalid_argument (err_str);
+    }
+    catch (const std::out_of_range& e)
+    {
+        auto err_str = std::string(_(gnc_csv_col_type_strs[prop_type])) +
+        std::string(_(" could not be understood.\n")) +
+        e.what();
+        m_errors.emplace(prop_type, err_str);
+        throw std::invalid_argument (err_str);
     }
 }
 

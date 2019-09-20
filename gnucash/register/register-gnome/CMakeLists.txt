@@ -1,4 +1,5 @@
 add_subdirectory(test)
+include(CheckSymbolExists)
 
 #GTK before 3.14 didn't have GDK_MODIFIER_INTENT_DEFAULT_MOD_MASK
 check_symbol_exists(GDK_MODIFIER_INTENT_DEFAULT_MOD_MASK gdk/gdktypes.h have_mod_mask)
@@ -54,13 +55,13 @@ set_source_files_properties (${register_gnome_SOURCES} PROPERTIES OBJECT_DEPENDS
 
 add_library (gncmod-register-gnome ${register_gnome_SOURCES} ${register_gnome_noinst_HEADERS})
 
-target_link_libraries(gncmod-register-gnome gncmod-register-core ${GTK3_LDFLAGS})
+target_link_libraries(gncmod-register-gnome gncmod-register-core PkgConfig::GTK3)
 
 target_compile_definitions(gncmod-register-gnome PRIVATE -DG_LOG_DOMAIN=\"gnc.register.gnome\")
 
 target_include_directories(gncmod-register-gnome
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-    PRIVATE ${CMAKE_SOURCE_DIR}/gnucash/register/ledger-core ${GTK3_INCLUDE_DIRS}
+    PRIVATE ${CMAKE_SOURCE_DIR}/gnucash/register/ledger-core
 )
 
 if (APPLE)

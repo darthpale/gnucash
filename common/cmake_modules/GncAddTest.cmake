@@ -126,10 +126,13 @@ function(gnc_gtest_configure)
     find_package(Threads REQUIRED)
     set(GTEST_FOUND YES CACHE INTERNAL "Found GTest")
     if(GTEST_SHARED_LIB)
-      set(GTEST_LIB "${GTEST_SHARED_LIB};${GTEST_MAIN_LIB}" PARENT_SCOPE)
+      set(GTEST_LIB "${GTEST_MAIN_LIB};${GTEST_SHARED_LIB}" PARENT_SCOPE)
       unset(GTEST_SRC_DIR CACHE)
     else()
-      set(GTEST_SRC "${GTEST_SRC_DIR}/src/gtest_main.cc" PARENT_SCOPE)
+      set(lib_gtest_SOURCES
+        "${GTEST_SRC_DIR}/src/gtest_main.cc"
+        "${GTEST_SRC_DIR}/src/gtest-all.cc"
+        PARENT_SCOPE)
       set(GTEST_LIB "${CMAKE_BINARY_DIR}/common/test-core/libgtest.a" PARENT_SCOPE)
     endif()
   else()

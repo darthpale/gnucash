@@ -101,7 +101,7 @@ typedef struct GncPluginPageAccountTreePrivate
 } GncPluginPageAccountTreePrivate;
 
 #define GNC_PLUGIN_PAGE_ACCOUNT_TREE_GET_PRIVATE(o)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GNC_TYPE_PLUGIN_PAGE_ACCOUNT_TREE, GncPluginPageAccountTreePrivate))
+   ((GncPluginPageAccountTreePrivate*)g_type_instance_get_private((GTypeInstance*)o, GNC_TYPE_PLUGIN_PAGE_ACCOUNT_TREE))
 
 static GObjectClass *parent_class = NULL;
 
@@ -146,6 +146,7 @@ static void gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, 
 static void gnc_plugin_page_account_tree_cmd_renumber_accounts (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_view_filter_by (GtkAction *action, GncPluginPageAccountTree *plugin_page);
 static void gnc_plugin_page_account_tree_cmd_reconcile (GtkAction *action, GncPluginPageAccountTree *page);
+static void gnc_plugin_page_account_tree_cmd_refresh (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_autoclear (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_transfer (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_stock_split (GtkAction *action, GncPluginPageAccountTree *page);
@@ -252,6 +253,11 @@ static GtkActionEntry gnc_plugin_page_account_tree_actions [] =
     {
         "ViewFilterByAction", NULL, N_("_Filter By..."), NULL, NULL,
         G_CALLBACK (gnc_plugin_page_account_tree_cmd_view_filter_by)
+    },
+    {
+        "ViewRefreshAction", "view-refresh", N_("_Refresh"), "<primary>r",
+        N_("Refresh this window"),
+        G_CALLBACK (gnc_plugin_page_account_tree_cmd_refresh)
     },
 
     /* Actions menu */
@@ -1402,7 +1408,7 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
         g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_FILTER, filter);
         g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_ACCOUNT, account);
 
-        // Add the account selectors and enable sections as appropiate
+        // Add the account selectors and enable sections as appropriate
         // setup transactions selector
         trans_mas = gppat_setup_account_selector (builder, dialog, "trans_mas_hbox", DELETE_DIALOG_TRANS_MAS);
 
@@ -1654,6 +1660,18 @@ gnc_plugin_page_account_tree_cmd_renumber_accounts (GtkAction *action,
         return;
 
     gnc_account_renumber_create_dialog(window, account);
+}
+
+static void
+gnc_plugin_page_account_tree_cmd_refresh (GtkAction *action,
+        GncPluginPageAccountTree *page)
+{
+    GncPluginPageAccountTreePrivate *priv;
+
+    g_return_if_fail(GNC_IS_PLUGIN_PAGE_ACCOUNT_TREE(page));
+
+    priv = GNC_PLUGIN_PAGE_ACCOUNT_TREE_GET_PRIVATE(page);
+    gtk_widget_queue_draw (priv->widget);
 }
 
 /*********************/
