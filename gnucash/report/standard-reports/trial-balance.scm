@@ -72,7 +72,6 @@
 (define optname-end-date (N_ "Date of Report"))
 (define optname-report-variant (N_ "Report variation"))
 (define opthelp-report-variant (N_ "Kind of trial balance to generate."))
-;; FIXME this needs an indent option
 
 (define optname-accounts (N_ "Accounts"))
 (define opthelp-accounts
@@ -316,19 +315,6 @@
 
     options))
 
-;; (coll-plus collectors ...) equiv to (+ collectors ...)
-(define (coll-plus . collectors)
-  (let ((res (gnc:make-commodity-collector)))
-    (for-each (lambda (coll) (res 'merge coll #f)) collectors)
-    res))
-
-;; (coll-minus collectors ...) equiv to (- collector0 collector1 ...)
-(define (coll-minus . collectors)
-  (let ((res (gnc:make-commodity-collector)))
-    (res 'merge (car collectors) #f)
-    (for-each (lambda (coll) (res 'minusmerge coll #f)) (cdr collectors))
-    res))
-
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; trial-balance-renderer
 ;; set up the document and add the table
@@ -374,7 +360,6 @@
          (show-rates? (get-option pagename-commodities optname-show-rates))
          (show-zb-accts? #t)
          (use-links? (get-option gnc:pagename-display optname-account-links))
-         (indent 0)
 
          ;; decompose the account list
          (split-up-accounts (gnc:decompose-accountlist accounts))
@@ -531,7 +516,7 @@
                 (let* ((cost-fn (gnc:case-exchange-fn
                                  'average-cost report-commodity end-date))
                        (acct-balances (map acct->bal all-accounts))
-                       (book-balance (apply coll-plus acct-balances))
+                       (book-balance (apply gnc:collector+ acct-balances))
                        (value (gnc:sum-collector-commodity
                                book-balance report-commodity exchange-fn))
                        (cost (gnc:sum-collector-commodity
@@ -572,15 +557,11 @@
           (let* ((env (gnc:html-acct-table-get-row-env acct-table 0)))
             (set! account-cols (get-val env 'account-cols)))
 
-          ;; Workaround to force gtkhtml into displaying wide
-          ;; enough columns.
-          (let ((space
-                 (make-list
-                  (+ account-cols
-                     (if (eq? report-variant 'work-sheet) 10 2))
-                  "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")))
+          (let* ((ncols (+ account-cols (if (eq? report-variant 'work-sheet) 10 2)))
+                 (space (make-list ncols (gnc:make-html-table-cell/min-width 60))))
             (gnc:html-table-append-row! build-table space)
-            (set! header-rows (+ header-rows 1)))
+            (set! header-rows (1+ header-rows)))
+
           ;; add the double-column headers if required
           (if (eq? report-variant 'work-sheet)
               (let* ((headings
@@ -674,17 +655,19 @@
                      (pos-adjusting
                       (and ga-or-is? (sum-account-splits acct adjusting-splits #t)))
                      (neg-adjusting
-                      (and ga-or-is? (coll-minus adjusting pos-adjusting)))
-                     (pre-closing-bal (coll-minus curr-bal closing))
-                     (pre-adjusting-bal (coll-minus pre-closing-bal adjusting))
+                      (and ga-or-is? (gnc:collector- adjusting pos-adjusting)))
+                     (pre-closing-bal (gnc:collector- curr-bal closing))
+                     (pre-adjusting-bal (gnc:collector- pre-closing-bal
+                                                        adjusting))
                      (atb (cond ((not is?) pre-closing-bal)
                                 ((double-col 'credit-q pre-adjusting-bal
                                              report-commodity exchange-fn show-fcur?)
-                                 (list (coll-plus pos-adjusting)
-                                       (coll-plus neg-adjusting pre-adjusting-bal)))
+                                 (list (gnc:collector+ pos-adjusting)
+                                       (gnc:collector+ neg-adjusting
+                                                       pre-adjusting-bal)))
                                 (else
-                                 (list (coll-plus pos-adjusting pre-adjusting-bal)
-                                       (coll-plus neg-adjusting))))))
+                                 (list (gnc:collector+ pos-adjusting pre-adjusting-bal)
+                                       (gnc:collector+ neg-adjusting))))))
 
                 ;; curr-bal = account-bal with closing & adj entries
                 ;; pre-closing-bal = account-bal with adj entries only
@@ -851,8 +834,8 @@
                  (tot-abs-amt-cell bs-credits))
                 '())))
           (if (eq? report-variant 'work-sheet)
-              (let* ((net-is (coll-minus is-debits is-credits))
-                     (net-bs (coll-minus bs-debits bs-credits))
+              (let* ((net-is (gnc:collector- is-debits is-credits))
+                     (net-bs (gnc:collector- bs-debits bs-credits))
                      (tot-is (gnc:make-commodity-collector))
                      (tot-bs (gnc:make-commodity-collector))
                      (is-entry #f)

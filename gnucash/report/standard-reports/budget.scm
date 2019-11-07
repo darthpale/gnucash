@@ -317,17 +317,6 @@
                   (gnc-budget-get-account-period-actual-value budget acct period))
                 periodlist)))
 
-    (define (flatten lst)
-      (reverse!
-       (let loop ((lst lst) (result '()))
-         (if (null? lst)
-             result
-             (let ((elt (car lst))
-                   (rest (cdr lst)))
-               (if (pair? elt)
-                   (loop rest (append (loop elt '()) result))
-                   (loop rest (cons elt result))))))))
-
     ;; Adds a line to the budget report.
     ;;
     ;; Parameters:
@@ -342,8 +331,8 @@
              column-list exchange-fn)
       (let* ((comm (xaccAccountGetCommodity acct))
              (reverse-balance? (gnc-reverse-balance acct))
-             (allperiods (filter number? (flatten column-list)))
-             (total-periods (if accumulate?
+             (allperiods (filter number? (gnc:list-flatten column-list)))
+             (total-periods (if (and accumulate? (not (null? allperiods)))
                                 (iota (1+ (apply max allperiods)))
                                 allperiods))
              (income-acct? (eqv? (xaccAccountGetType acct) ACCT-TYPE-INCOME)))
@@ -361,25 +350,24 @@
         ;;   col - next column
         (define (disp-cols style-tag col0
                            bgt-val act-val dif-val)
-          (let* ((style-tag-neg (string-append style-tag "-neg"))
-                 (col1 (+ col0 (if show-budget? 1 0)))
+          (let* ((col1 (+ col0 (if show-budget? 1 0)))
                  (col2 (+ col1 (if show-actual? 1 0)))
                  (col3 (+ col2 (if show-diff? 1 0))))
             (if show-budget?
                 (gnc:html-table-set-cell/tag!
                  html-table rownum col0
-                 (if (negative? bgt-val) style-tag-neg style-tag)
+                 style-tag
                  (if (zero? bgt-val) "."
                      (gnc:make-gnc-monetary comm bgt-val))))
             (if show-actual?
                 (gnc:html-table-set-cell/tag!
                  html-table rownum col1
-                 (if (negative? act-val) style-tag-neg style-tag)
+                 style-tag
                  (gnc:make-gnc-monetary comm act-val)))
             (if show-diff?
                 (gnc:html-table-set-cell/tag!
                  html-table rownum col2
-                 (if (negative? dif-val) style-tag-neg style-tag)
+                 style-tag
                  (if (and (zero? bgt-val) (zero? act-val)) "."
                      (gnc:make-gnc-monetary comm dif-val))))
             col3))
@@ -396,6 +384,7 @@
                                budget acct total-periods))
                    (act-total (gnc:get-account-periodlist-actual-value
                                budget acct total-periods))
+                   (act-total (if reverse-balance? (- act-total) act-total))
                    (dif-total (if income-acct?
                                   (- act-total bgt-total)
                                   (- bgt-total act-total))))
@@ -547,7 +536,9 @@
     (define (calc-periods
              budget user-start user-end collapse-before? collapse-after? show-total?)
       (define (range start end)
-        (iota (- end start) start))
+        (if (< start end)
+            (iota (- end start) start)
+            (iota (- start end) end)))
       (let* ((num-periods (gnc-budget-get-num-periods budget))
              (range-start (or user-start 0))
              (range-end (if user-end (1+ user-end) num-periods))

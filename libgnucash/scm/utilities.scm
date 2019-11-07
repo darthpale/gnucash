@@ -47,6 +47,7 @@
 (export gnc:debug)
 (export addto!)
 (export sort-and-delete-duplicates)
+(export gnc:list-flatten)
 
 ;; Do this stuff very early -- but other than that, don't add any
 ;; executable code until the end of the file if you can help it.
@@ -172,8 +173,25 @@
    (and (positive? end-after) (+ (max 0 (1- start)) (1- end-after)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; function to sanitize strings. the resulting string can be safely
+;; added to html.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define-public (gnc:html-string-sanitize str)
+  (with-output-to-string
+    (lambda ()
+      (string-for-each
+       (lambda (c)
+         (display
+          (case c
+            ((#\&) "&amp;")
+            ((#\<) "&lt;")
+            ((#\>) "&gt;")
+            (else c))))
+       str))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; avoid using strftime, still broken in guile-2.2. see explanation at
-;; https://www.mail-archive.com/bug-guile@gnu.org/msg09778.html
+;; https://lists.gnu.org/archive/html/bug-guile/2019-05/msg00003.html
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (let ((strftime-old strftime))
   (set! strftime
@@ -191,6 +209,17 @@
   (define (kons a b) (if (and (pair? b) (= a (car b))) b (cons a b)))
   (reverse (fold kons '() (sort lst <))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; flattens an arbitrary deep nested list into simple list.  this is
+;; probably the most efficient algorithm available. '(1 2 (3 4)) -->
+;; '(1 2 3 4)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define (gnc:list-flatten . lst)
+  (reverse
+   (let lp ((e lst) (accum '()))
+     (if (list? e)
+         (fold lp accum e)
+         (cons e accum)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compatibility hack for fixing guile-2.0 string handling. this code

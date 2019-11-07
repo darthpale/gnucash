@@ -9,12 +9,15 @@ set(scm_test_with_srfi64_SOURCES
   test-cashflow-barchart.scm
   test-charts.scm
   test-transaction.scm
+  test-account-summary.scm
   test-balsheet-pnl.scm
   test-income-gst.scm
   test-budget.scm
   test-register.scm
   test-trial-balance.scm
+  test-equity-statement.scm
   test-average-balance.scm
+  test-portfolios.scm
 )
 
 set(scm_test_with_textual_ports_SOURCES

@@ -152,33 +152,24 @@
     gnc:pagename-general (N_ "Alternate Period")
     "c" (N_ "Override or modify From: & To:.")
     (if after-tax-day 'from-to 'last-year)
-    (list (list->vector
-           (list 'from-to (N_ "Use From - To") (N_ "Use From - To period.")))
-          (list->vector
-           (list '1st-est (N_ "1st Est Tax Quarter") (N_ "Jan 1 - Mar 31.")))
-          (list->vector
-           (list '2nd-est (N_ "2nd Est Tax Quarter") (N_ "Apr 1 - May 31.")))
-          (list->vector
-	   ;; Translators: The US tax quarters are different from
-	   ;; actual year's quarters! See the definition of
-	   ;; tax-qtr-real-qtr-year variable above.
-           (list '3rd-est (N_ "3rd Est Tax Quarter") (N_ "Jun 1 - Aug 31.")))
-          (list->vector
-           (list '4th-est (N_ "4th Est Tax Quarter") (N_ "Sep 1 - Dec 31.")))
-          (list->vector
-           (list 'last-year (N_ "Last Year") (N_ "Last Year.")))
-          (list->vector
-           (list '1st-last (N_ "Last Yr 1st Est Tax Qtr")
-                 (N_ "Jan 1 - Mar 31, Last year.")))
-          (list->vector
-           (list '2nd-last (N_ "Last Yr 2nd Est Tax Qtr")
-                 (N_ "Apr 1 - May 31, Last year.")))
-          (list->vector
-           (list '3rd-last (N_ "Last Yr 3rd Est Tax Qtr")
-                 (N_ "Jun 1 - Aug 31, Last year.")))
-          (list->vector
-           (list '4th-last (N_ "Last Yr 4th Est Tax Qtr")
-                 (N_ "Sep 1 - Dec 31, Last year."))))))
+    (list (vector 'from-to (N_ "Use From - To") (N_ "Use From - To period."))
+          (vector '1st-est (N_ "1st Est Tax Quarter") (N_ "Jan 1 - Mar 31."))
+          (vector '2nd-est (N_ "2nd Est Tax Quarter") (N_ "Apr 1 - May 31."))
+          (vector '3rd-est (N_ "3rd Est Tax Quarter") (N_ "Jun 1 - Aug 31."))
+          (vector '4th-est (N_ "4th Est Tax Quarter") (N_ "Sep 1 - Dec 31."))
+          (vector 'last-year (N_ "Last Year") (N_ "Last Year."))
+          (vector '1st-last
+                  (N_ "Last Yr 1st Est Tax Qtr")
+                  (N_ "Jan 1 - Mar 31, Last year."))
+          (vector '2nd-last
+                  (N_ "Last Yr 2nd Est Tax Qtr")
+                  (N_ "Apr 1 - May 31, Last year."))
+          (vector '3rd-last
+                  (N_ "Last Yr 3rd Est Tax Qtr")
+                  (N_ "Jun 1 - Aug 31, Last year."))
+          (vector '4th-last
+                  (N_ "Last Yr 4th Est Tax Qtr")
+                  (N_ "Sep 1 - Dec 31, Last year.")))))
 
   (gnc:register-tax-option
    (gnc:make-account-list-option
@@ -505,11 +496,7 @@
                                 (validate (reverse 
                                            (gnc-account-get-children-sorted
                                             (gnc-get-current-root-account))))))
-         (book (if selected-accounts
-                   (gnc-account-get-book (if (pair? selected-accounts)
-                                             (car selected-accounts)
-                                             selected-accounts))
-                   #f))
+         (book (gnc-get-current-book))
          (generations (if (pair? selected-accounts)
                           (apply max (map (lambda (x) (num-generations x 1))
                                           selected-accounts))
@@ -772,12 +759,7 @@
 	  (to-year    (gnc-print-time64 to-value "%Y"))
           (today-date (gnc-print-time64 (time64CanonicalDayTime (current-time))
                                         "%d.%m.%Y"))
-	  (tax-nr (unless book
-                      (or
-                       (gnc:option-get-value book gnc:*tax-label* gnc:*tax-nr-label*)
-                       "")
-                      ""))
-	  )
+	  (tax-nr (gnc:option-get-value book gnc:*tax-label* gnc:*tax-nr-label*)))
 
       ;; Now, the main body
       ;; Reset all the balance collectors

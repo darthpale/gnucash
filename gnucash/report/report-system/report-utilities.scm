@@ -390,6 +390,25 @@ construct gnc:make-gnc-monetary and use gnc:monetary->string instead.")
 (define (gnc-commodity-collector-allzero? collector)
   (every zero? (map cdr (collector 'format cons #f))))
 
+;; (gnc:collector+ collectors ...) equiv to (+ collectors ...) and
+;; outputs: a collector
+(define (gnc:collector+ . collectors)
+  (let ((res (gnc:make-commodity-collector)))
+    (for-each (lambda (coll) (res 'merge coll #f)) collectors)
+    res))
+
+;; (gnc:collectors- collectors ...) equiv to (- collectors ...), can
+;; also negate single-argument collector. outputs collector
+(define gnc:collector-
+  (case-lambda
+    (() (error "gnc:collector- needs at least 1 collector argument"))
+    ((coll) (gnc:collector- (gnc:make-commodity-collector) coll))
+    ((coll . rest)
+     (let ((res (gnc:make-commodity-collector)))
+       (res 'merge coll #f)
+       (res 'minusmerge (apply gnc:collector+ rest) #f)
+       res))))
+
 ;; add any number of gnc-monetary objects into a commodity-collector
 ;; usage: (gnc:monetaries-add monetary1 monetary2 ...)
 ;; output: a commodity-collector object
@@ -451,7 +470,7 @@ flawed. see report-utilities.scm. please update reports.")
   (define (amount->monetary bal)
     (gnc:make-gnc-monetary (xaccAccountGetCommodity account) bal))
   (let loop ((splits (xaccAccountGetSplitList account))
-             (dates-list (stable-sort! dates-list <))
+             (dates-list (sort dates-list <))
              (currentbal 0)
              (lastbal 0)
              (balancelist '()))
@@ -1074,6 +1093,67 @@ flawed. see report-utilities.scm. please update reports.")
        (total 'merge (cadr account-balance) #f))
      account-balances)
     total))
+
+
+;; ***************************************************************************
+;; Business Functions
+
+;; create a stepped list, then add a date in the infinite future for
+;; the "current" bucket
+(define (make-extended-interval-list to-date num-buckets)
+  (let lp ((begindate to-date) (num-buckets num-buckets))
+    (if (zero? num-buckets)
+        (append (gnc:make-date-list begindate to-date ThirtyDayDelta) (list +inf.0))
+        (lp (decdate begindate ThirtyDayDelta) (1- num-buckets)))))
+
+;; Outputs: aging list of numbers
+(define-public (gnc:owner-splits->aging-list splits num-buckets
+                                             to-date date-type receivable?)
+  (gnc:pk 'processing: (qof-print-date to-date) date-type 'receivable? receivable?)
+  (let ((bucket-dates (make-extended-interval-list to-date (- num-buckets 2)))
+        (buckets (make-vector num-buckets 0)))
+    (define (addbucket! idx amt)
+      (vector-set! buckets idx (+ amt (vector-ref buckets idx))))
+    (let lp ((splits splits))
+      (cond
+       ((null? splits)
+        (vector->list buckets))
+
+       ;; next split is an invoice posting split. note we don't need
+       ;; to handle invoice payments because these payments will
+       ;; reduce the lot balance automatically.
+       ((eqv? (xaccTransGetTxnType (xaccSplitGetParent (car splits)))
+              TXN-TYPE-INVOICE)
+        (let* ((invoice (gncInvoiceGetInvoiceFromTxn
+                         (xaccSplitGetParent (car splits))))
+               (lot (gncInvoiceGetPostedLot invoice))
+               (bal (gnc-lot-get-balance lot))
+               (bal (if receivable? bal (- bal)))
+               (date (if (eq? date-type 'postdate)
+                         (gncInvoiceGetDatePosted invoice)
+                         (gncInvoiceGetDateDue invoice))))
+          (gnc:pk 'next=invoice (car splits) invoice bal)
+          (let loop ((idx 0) (bucket-dates bucket-dates))
+            (if (< date (car bucket-dates))
+                (addbucket! idx bal)
+                (loop (1+ idx) (cdr bucket-dates)))))
+        (lp (cdr splits)))
+
+       ;; next split is a prepayment
+       ((and (eqv? (xaccTransGetTxnType (xaccSplitGetParent (car splits)))
+                   TXN-TYPE-PAYMENT)
+             (null? (gncInvoiceGetInvoiceFromLot (xaccSplitGetLot (car splits)))))
+        (let* ((prepay (xaccSplitGetAmount (car splits)))
+               (prepay (if receivable? prepay (- prepay))))
+          (gnc:pk 'next=prepay (car splits) prepay)
+          (addbucket! (1- num-buckets) prepay))
+        (lp (cdr splits)))
+
+       ;; not invoice/prepayment. regular or payment split.
+       (else
+        (gnc:pk 'next=skipped (car splits))
+        (lp (cdr splits)))))))
+
 ;; ***************************************************************************
 
 ;; Adds "file:///" to the beginning of a URL if it doesn't already exist
@@ -1096,15 +1176,17 @@ flawed. see report-utilities.scm. please update reports.")
               (xaccAccountGetName (xaccSplitGetAccount spl))
               (gnc:monetary->string
                (gnc:make-gnc-monetary
-                (xaccTransGetCurrency txn)
-                (xaccSplitGetValue spl)))
-              (gnc:monetary->string
-               (gnc:make-gnc-monetary
                 (xaccAccountGetCommodity
                  (xaccSplitGetAccount spl))
-                (xaccSplitGetAmount spl))))))
+                (xaccSplitGetAmount spl)))
+              (gnc:monetary->string
+               (gnc:make-gnc-monetary
+                (xaccTransGetCurrency txn)
+                (xaccSplitGetValue spl))))))
   (define (trans->str txn)
-    (format #f "Txn<d:~a>" (qof-print-date (xaccTransGetDate txn))))
+    (format #f "Txn<d:~a,desc:~a>"
+            (qof-print-date (xaccTransGetDate txn))
+            (xaccTransGetDescription txn)))
   (define (account->str acc)
     (format #f "Acc<~a>" (xaccAccountGetName acc)))
   (define (monetary-collector->str coll)
@@ -1118,6 +1200,26 @@ flawed. see report-utilities.scm. please update reports.")
   (define (monetary->string mon)
     (format #f "[~a]"
             (gnc:monetary->string mon)))
+  (define (owner->str owner)
+    (format #f "[~a:~a]"
+            (gncOwnerGetTypeString owner)
+            (gncOwnerGetName owner)))
+  (define (invoice->str inv)
+    (format #f "~a<Post:~a,Owner:~a,Notes:~a,Total:~a>"
+            (gncInvoiceGetTypeString inv)
+            (qof-print-date (gncInvoiceGetDatePosted inv))
+            (gncOwnerGetName (gncInvoiceGetOwner inv))
+            (gncInvoiceGetNotes inv)
+            (monetary->string (gnc:make-gnc-monetary
+                               (gncInvoiceGetCurrency inv)
+                               (gncInvoiceGetTotal inv)))))
+  (define (lot->str lot)
+    (format #f "Lot<Acc:~a,Title:~a,Notes:~a,Balance:~a,NSplits:~a>"
+            (xaccAccountGetName (gnc-lot-get-account lot))
+            (gnc-lot-get-title lot)
+            (gnc-lot-get-notes lot)
+            (gnc-lot-get-balance lot)
+            (gnc-lot-count-splits lot)))
   (define (try proc)
     ;; Try proc with d as a parameter, catching exceptions to return
     ;; #f to the (or) evaluator below.
@@ -1146,6 +1248,9 @@ flawed. see report-utilities.scm. please update reports.")
       (try trans->str)
       (try monetary->string)
       (try gnc-budget-get-name)
+      (try owner->str)
+      (try invoice->str)
+      (try lot->str)
       (object->string d)))
 
 (define (pair->num pair)

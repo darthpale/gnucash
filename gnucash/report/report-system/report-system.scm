@@ -122,7 +122,6 @@
 (export gnc:html-make-options-link)
 (export gnc:html-js-include)
 (export gnc:html-css-include)
-(export gnc:html-string-sanitize)
 
 ;; report.scm
 (export gnc:menuname-reports)
@@ -564,6 +563,7 @@
 (export gnc:make-html-table-header-cell)
 (export gnc:make-html-table-header-cell/markup)
 (export gnc:make-html-table-header-cell/size)
+(export gnc:make-html-table-cell/min-width)
 (export gnc:html-table-cell?)
 (export gnc:html-table-cell-rowspan)
 (export gnc:html-table-cell-set-rowspan!)
@@ -693,6 +693,8 @@
 (export gnc:make-value-collector)
 (export gnc:make-number-collector)      ;deprecated
 (export gnc:make-commodity-collector)
+(export gnc:collector+)
+(export gnc:collector-)
 (export gnc:commodity-collector-get-negated)
 (export gnc:commodity-collectorlist-get-merged) ;deprecated
 (export gnc-commodity-collector-commodity-count)
