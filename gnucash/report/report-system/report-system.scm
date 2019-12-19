@@ -430,17 +430,17 @@
 (export gnc:html-markup-style-info-set-tag!)
 (export gnc:html-markup-style-info-attributes)
 (export gnc:html-markup-style-info-set-attributes!)
-(export gnc:html-markup-style-info-font-face)
-(export gnc:html-markup-style-info-set-font-face-internal!)
-(export gnc:html-markup-style-info-set-font-face!)
-(export gnc:html-markup-style-info-font-size)
-(export gnc:html-markup-style-info-set-font-size-internal!)
-(export gnc:html-markup-style-info-set-font-size!)
-(export gnc:html-markup-style-info-font-color)
-(export gnc:html-markup-style-info-set-font-color-internal!)
-(export gnc:html-markup-style-info-set-font-color!)
-(export gnc:html-markup-style-info-closing-font-tag)
-(export gnc:html-markup-style-info-set-closing-font-tag!)
+(export gnc:html-markup-style-info-font-face)               ;deprecated
+(export gnc:html-markup-style-info-set-font-face-internal!) ;deprecated
+(export gnc:html-markup-style-info-set-font-face!)          ;deprecated
+(export gnc:html-markup-style-info-font-size)               ;deprecated
+(export gnc:html-markup-style-info-set-font-size-internal!) ;deprecated
+(export gnc:html-markup-style-info-set-font-size!)          ;deprecated
+(export gnc:html-markup-style-info-font-color)              ;deprecated
+(export gnc:html-markup-style-info-set-font-color-internal!) ;deprecated
+(export gnc:html-markup-style-info-set-font-color!)          ;deprecated
+(export gnc:html-markup-style-info-closing-font-tag)         ;deprecated
+(export gnc:html-markup-style-info-set-closing-font-tag!)    ;deprecated
 (export gnc:html-markup-style-info-inheritable?)
 (export gnc:html-markup-style-info-set-inheritable?!)
 (export gnc:html-markup-style-info-set-attribute!)
@@ -666,6 +666,7 @@
 (export gnc:html-markup-h3)
 (export gnc:html-markup-br)
 (export gnc:html-markup-hr)
+(export gnc:html-markup-ol)
 (export gnc:html-markup-ul)
 (export gnc:html-markup-anchor)
 (export gnc:html-markup-img)
@@ -698,6 +699,7 @@
 (export gnc:commodity-collector-get-negated)
 (export gnc:commodity-collectorlist-get-merged) ;deprecated
 (export gnc-commodity-collector-commodity-count)
+(export gnc:account-accumulate-at-dates)
 (export gnc:account-get-balance-at-date)
 (export gnc:account-get-balances-at-dates)
 (export gnc:account-get-comm-balance-at-date)
@@ -743,6 +745,7 @@
 (export gnc:get-assoc-account-balances)
 (export gnc:select-assoc-account-balance)
 (export gnc:get-assoc-account-balances-total)
+(export gnc:multiline-to-html-text)
 (export make-file-url)
 (export gnc:strify)
 (export gnc:pk)

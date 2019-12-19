@@ -564,7 +564,8 @@ gnucash_sheet_show_row (GnucashSheet *sheet, gint virt_row)
     height = alloc.height;
 
     block = gnucash_sheet_get_block (sheet, vcell_loc);
-
+    if (!block)
+        return;
     y = block->origin_y;
     block_height = block->style->dimensions->height;
 
@@ -644,6 +645,8 @@ gnucash_sheet_show_range (GnucashSheet *sheet,
 
     start_block = gnucash_sheet_get_block (sheet, start_loc);
     end_block = gnucash_sheet_get_block (sheet, end_loc);
+    if (!(start_block && end_block))
+        return;
 
     y = start_block->origin_y;
     block_height = (end_block->origin_y +
@@ -2228,7 +2231,7 @@ gnucash_sheet_block_set_from_table (GnucashSheet *sheet,
     block = gnucash_sheet_get_block (sheet, vcell_loc);
     style = gnucash_sheet_get_style_from_table (sheet, vcell_loc);
 
-    if (block == NULL)
+    if (!block)
         return FALSE;
 
     table = sheet->table;
@@ -2265,6 +2268,7 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
     SheetBlockStyle *style;
     PangoLayout *layout = gtk_widget_create_pango_layout (GTK_WIDGET (sheet), "");
     GncItemEdit *item_edit = GNC_ITEM_EDIT(sheet->item_editor);
+    const gchar *type_name;
 
     g_return_val_if_fail (virt_col >= 0, 0);
     g_return_val_if_fail (virt_col < sheet->num_virt_cols, 0);
@@ -2275,6 +2279,9 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
         VirtualCellLocation vcell_loc = { virt_row, virt_col };
 
         block = gnucash_sheet_get_block (sheet, vcell_loc);
+        if (!block)
+            continue;
+
         style = block->style;
 
         if (!style)
@@ -2307,6 +2314,14 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
                 width += (gnc_item_edit_get_margin (item_edit, left_right) +
                           gnc_item_edit_get_padding_border (item_edit, left_right));
 
+                // get the cell type so we can add the button width to the
+                // text width if required.
+                type_name = gnc_table_get_cell_type_name (sheet->table, virt_loc);
+                if ((g_strcmp0 (type_name, DATE_CELL_TYPE_NAME) == 0)
+                    || (g_strcmp0 (type_name, COMBO_CELL_TYPE_NAME) == 0))
+                {
+                    width += gnc_item_edit_get_button_width (item_edit);
+                }
                 max = MAX (max, width);
             }
     }
@@ -2409,6 +2424,9 @@ gnucash_sheet_recompute_block_offsets (GnucashSheet *sheet)
             VirtualCellLocation vcell_loc = { i, j };
 
             block = gnucash_sheet_get_block (sheet, vcell_loc);
+
+            if (!block)
+                continue;
 
             block->origin_x = width;
             block->origin_y = height;

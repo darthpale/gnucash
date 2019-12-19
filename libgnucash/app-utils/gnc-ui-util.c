@@ -179,6 +179,23 @@ gnc_reverse_balance (const Account *account)
     return reverse_type[type];
 }
 
+gboolean gnc_using_unreversed_budgets (QofBook* book)
+{
+    return gnc_features_check_used (book, GNC_FEATURE_BUDGET_UNREVERSED);
+}
+
+/* similar to gnc_reverse_balance but also accepts a gboolean
+   unreversed which specifies the reversal strategy - FALSE = pre-4.x
+   always-assume-credit-accounts, TRUE = all amounts unreversed */
+gboolean
+gnc_reverse_budget_balance (const Account *account, gboolean unreversed)
+{
+    if (unreversed == gnc_using_unreversed_budgets(gnc_account_get_book(account)))
+        return gnc_reverse_balance (account);
+
+    return FALSE;
+}
+
 
 gchar *
 gnc_get_default_directory (const gchar *section)
@@ -1553,18 +1570,9 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
         val = gnc_numeric_convert(val, denom, GNC_HOW_RND_ROUND_HALF_UP);
         value_is_decimal = gnc_numeric_to_decimal(&val, NULL);
     }
-    /* Force at least auto_decimal_places zeros */
-    if (auto_decimal_enabled)
-    {
-        min_dp = MAX(auto_decimal_places, info->min_decimal_places);
-        max_dp = MAX(auto_decimal_places, info->max_decimal_places);
-    }
-    else
-    {
-        min_dp = info->min_decimal_places;
-        max_dp = info->max_decimal_places;
-    }
-
+    min_dp = info->min_decimal_places;
+    max_dp = info->max_decimal_places;
+    
     /* Don to limit the number of decimal places _UNLESS_ force_fit is
      * true. */
     if (!info->force_fit)
