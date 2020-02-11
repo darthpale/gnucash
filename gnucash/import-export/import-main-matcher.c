@@ -124,7 +124,6 @@ static gboolean gnc_gen_trans_onButtonPressed_cb (
                     GNCImportMainMatcher *info);
 static gboolean gnc_gen_trans_onPopupMenu_cb (
                     GtkTreeView *treeview,
-                    GdkEvent *event,
                     GNCImportMainMatcher *info);
 static void refresh_model_row (
                     GNCImportMainMatcher *gui,
@@ -651,7 +650,6 @@ gnc_gen_trans_onButtonPressed_cb (GtkTreeView *treeview,
 
 static gboolean
 gnc_gen_trans_onPopupMenu_cb (GtkTreeView *treeview,
-                              GdkEvent *event,
                               GNCImportMainMatcher *info)
 {
     GtkTreeSelection *selection;
@@ -746,8 +744,7 @@ gnc_gen_trans_init_view (GNCImportMainMatcher *info,
     /* prevent the rows being dragged to a different order */
     gtk_tree_view_set_reorderable (view, FALSE);
 
-    /* Add the columns *
-     * (keep the line break below to avoid a translator comment) */
+    /* Add the columns */
     add_text_column (view, _("Date"), DOWNLOADED_COL_DATE_TXT);
     info->account_column = add_text_column (view, _("Account"), DOWNLOADED_COL_ACCOUNT);
     gtk_tree_view_column_set_visible (info->account_column, show_account);

@@ -586,6 +586,8 @@
 (export gnc:html-table-set-caption!)
 (export gnc:html-table-col-headers)
 (export gnc:html-table-set-col-headers!)
+(export gnc:html-table-multirow-col-headers)
+(export gnc:html-table-set-multirow-col-headers!)
 (export gnc:html-table-row-headers)
 (export gnc:html-table-set-row-headers!)
 (export gnc:html-table-style)
@@ -751,6 +753,7 @@
 (export gnc:pk)
 (export gnc:dump-book)
 (export gnc:dump-invoices)
+(export gnc:dump-lot)
 
 ;; trep-engine.scm
 (export gnc:trep-options-generator)

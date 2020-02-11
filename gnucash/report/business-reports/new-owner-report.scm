@@ -30,11 +30,13 @@
 
 (use-modules (srfi srfi-1))
 (use-modules (srfi srfi-8))
+(use-modules (srfi srfi-9))
 (use-modules (srfi srfi-11))             ;for let-values
 (use-modules (ice-9 match))
 (use-modules (gnucash gnc-module))
 (use-modules (gnucash utilities))        ; for gnc:debug
 (use-modules (gnucash gettext))
+(use-modules (sw_core_utils))            ; for gnc-prefs-get-bool
 
 (gnc:module-load "gnucash/report/report-system" 0)
 (use-modules (gnucash report standard-reports))
@@ -55,8 +57,26 @@
 (define tax-header (N_ "Tax"))
 (define credit-header (N_ "Credits"))
 (define debit-header (N_ "Debits"))
-(define amount-header (N_ "Balance"))
+(define balance-header (N_ "Balance"))
 (define linked-txns-header (N_ "Links"))
+
+(define javascript "
+<script>
+  function getID(cell) { return cell.getAttribute('link-id'); }
+  function mousedown(e) {
+      var id = getID(e.target);
+      var ishighlighted = e.target.classList.contains('highlight');
+      e.preventDefault ();
+      TDs.forEach(TD => TD.classList.remove('highlight'));
+      if (ishighlighted) return;
+      TDs
+          .filter (TD => getID(TD) == id)
+          .forEach (TD => TD.classList.add('highlight'));}
+  var TDs = document.getElementsByTagName('td');
+  TDs = [...TDs].filter(getID);
+  TDs.forEach(TD => TD.onmousedown = mousedown);
+</script>
+")
 
 ;; Depending on the report type we want to set up some lists/cases
 ;; with strings to ease overview and translation
@@ -85,6 +105,35 @@
 (define (get-info key)
   (assv-ref owner-string-alist key))
 
+(define-record-type :link-data
+  (make-link-data date ref type desc partial-amount amount rhs-class)
+  link-data?
+  (date link-data-date)
+  (ref link-data-ref)
+  (type link-data-type)
+  (desc link-data-desc)
+  (partial-amount link-data-partial-amount)
+  (amount link-data-amount)
+  (rhs-class link-data-rhs-class))
+
+(define-record-type :link-desc-amount
+  (make-link-desc-amount desc amount rhs-class)
+  link-desc-amount?
+  (desc link-desc-amount-desc)
+  (amount link-desc-amount-amount)
+  (rhs-class link-desc-amount-rhs-class))
+
+(define-record-type :link-blank
+  (make-link-blank)
+  link-blank?)
+
+(define-record-type :payment-info
+  (make-payment-info overpayment invoices opposing-splits)
+  payment-info?
+  (overpayment payment-info-overpayment)
+  (invoices payment-info-invoices)
+  (opposing-splits payment-info-opposing-splits))
+
 ;; Names in Option panel (Untranslated! Because it is used for option
 ;; naming and lookup only, and the display of the option name will be
 ;; translated somewhere else.)
@@ -95,95 +144,158 @@
   (vector-ref columns-used 0))
 (define (date-due-col columns-used)
   (vector-ref columns-used 1))
-(define (num-col columns-used)
+(define (ref-col columns-used)
   (vector-ref columns-used 2))
 (define (type-col columns-used)
   (vector-ref columns-used 3))
-(define (memo-col columns-used)
+(define (desc-col columns-used)
   (vector-ref columns-used 4))
 (define (sale-col columns-used)
   (vector-ref columns-used 5))
 (define (tax-col columns-used)
   (vector-ref columns-used 6))
-(define (credit-col columns-used)
-  (vector-ref columns-used 7))
 (define (debit-col columns-used)
+  (vector-ref columns-used 7))
+(define (credit-col columns-used)
   (vector-ref columns-used 8))
-(define (value-col columns-used)
+(define (bal-col columns-used)
   (vector-ref columns-used 9))
 
-(define columns-used-size 10)
+(define (num-cols columns-used section)
+  (let* ((date? (date-col columns-used))
+         (due? (date-due-col columns-used))
+         (ref? (ref-col columns-used))
+         (type? (type-col columns-used))
+         (desc? (desc-col columns-used))
+         (sale? (sale-col columns-used))
+         (tax? (tax-col columns-used))
+         (credit? (credit-col columns-used))
+         (debit? (debit-col columns-used))
+         (bal? (bal-col columns-used))
+         (spacer? (or date? type? ref? desc? debit? credit?))
+         (amt? (or credit? debit?))
+         (cols-alist
+          (list
+           (list 'lhs-cols date? due? ref? type? desc? sale? tax? credit? debit? bal?)
+           (list 'ptt-span date? due? ref? type? desc?)
+           (list 'mid-spac spacer?)
+           (list 'rhs-cols date? ref? type? desc? amt? amt?)
+           (list 'rhs-span date? ref? type? desc?)))
+         (cols-list (assq-ref cols-alist section)))
+    (count identity cols-list)))
 
 (define (build-column-used options)
-  (define (opt-val section name)
+  (define (opt-val name)
     (gnc:option-value
-     (gnc:lookup-option options section name)))
-  (define (make-set-col col-vector)
-    (let ((col 0))
-      (lambda (used? index)
-        (if used?
-            (begin
-              (vector-set! col-vector index col)
-              (set! col (+ col 1)))
-            (vector-set! col-vector index #f)))))
+     (gnc:lookup-option options "Display Columns" name)))
+  (list->vector
+   (map opt-val
+        (list date-header due-date-header reference-header type-header
+              desc-header sale-header tax-header debit-header credit-header
+              balance-header))))
 
-  (let* ((col-vector (make-vector columns-used-size #f))
-         (set-col (make-set-col col-vector)))
-    (set-col (opt-val "Display Columns" date-header) 0)
-    (set-col (opt-val "Display Columns" due-date-header) 1)
-    (set-col (opt-val "Display Columns" reference-header) 2)
-    (set-col (opt-val "Display Columns" type-header) 3)
-    (set-col (opt-val "Display Columns" desc-header) 4)
-    (set-col (opt-val "Display Columns" sale-header) 5)
-    (set-col (opt-val "Display Columns" tax-header) 6)
-    (set-col (opt-val "Display Columns" credit-header) 7)
-    (set-col (opt-val "Display Columns" debit-header) 8)
-    (set-col (opt-val "Display Columns" amount-header) 9)
-    col-vector))
-
-(define (make-heading-list column-vector link-option)
-  (let ((heading-list '()))
+(define (make-heading-list column-vector link-option acct-type)
+  (let ((heading-list '())
+        (formal? (gnc-prefs-get-bool GNC-PREFS-GROUP-GENERAL
+                                     GNC-PREF-ACCOUNTING-LABELS)))
     (if (date-col column-vector)
         (addto! heading-list (_ date-header)))
     (if (date-due-col column-vector)
         (addto! heading-list (_ due-date-header)))
-    (if (num-col column-vector)
+    (if (ref-col column-vector)
         (addto! heading-list (_ reference-header)))
     (if (type-col column-vector)
         (addto! heading-list (_ type-header)))
-    (if (memo-col column-vector)
+    (if (desc-col column-vector)
         (addto! heading-list (_ desc-header)))
     (if (sale-col column-vector)
         (addto! heading-list (_ sale-header)))
     (if (tax-col column-vector)
         (addto! heading-list (_ tax-header)))
-    (if (credit-col column-vector)
-        (addto! heading-list (_ credit-header)))
     (if (debit-col column-vector)
-        (addto! heading-list (_ debit-header)))
-    (if (value-col column-vector)
-        (addto! heading-list (_ amount-header)))
+        (addto! heading-list
+                (if formal? debit-header (gnc:get-debit-string acct-type))))
+    (if (credit-col column-vector)
+        (addto! heading-list
+                (if formal? credit-header (gnc:get-credit-string acct-type))))
+    (if (bal-col column-vector)
+        (addto! heading-list (_ balance-header)))
     (case link-option
       ((simple)
        (addto! heading-list (_ linked-txns-header)))
       ((detailed)
-       (addto! heading-list (_ "Date"))
-       (addto! heading-list (_ "Details"))
-       (addto! heading-list (_ "Amount"))))
+       (if (< 0 (num-cols column-vector 'mid-spac)) (addto! heading-list #f))
+       (if (date-col column-vector) (addto! heading-list (_ "Date")))
+       (if (ref-col column-vector) (addto! heading-list (_ "Reference")))
+       (if (type-col column-vector) (addto! heading-list (_ "Type")))
+       (if (desc-col column-vector) (addto! heading-list (_ "Description")))
+       (if (or (debit-col column-vector) (credit-col column-vector))
+           (addto! heading-list (_ "Partial Amount")))
+       (if (or (debit-col column-vector) (credit-col column-vector))
+           (addto! heading-list (_ "Amount")))))
     (reverse heading-list)))
 
 (define num-buckets 6)
-(define (new-bucket-vector)
-  (make-vector num-buckets 0))
 
+(define (sign-equal? a b)
+  (or (= 0 a b) (< 0 (* a b))))
+(define (lot-split->posting-split split)
+  (let* ((lot (xaccSplitGetLot split))
+         (invoice (gncInvoiceGetInvoiceFromLot lot))
+         (post-txn (gncInvoiceGetPostedTxn invoice)))
+    (and (not (null? lot))
+         (not (null? invoice))
+         (not (null? post-txn))
+         (find (lambda (split) (equal? (xaccSplitGetParent split) post-txn))
+               (gnc-lot-get-split-list lot)))))
 (define (txn-is-invoice? txn)
   (eqv? (xaccTransGetTxnType txn) TXN-TYPE-INVOICE))
 (define (txn-is-payment? txn)
   (eqv? (xaccTransGetTxnType txn) TXN-TYPE-PAYMENT))
-(define (split<? a b)
-  (< (xaccSplitOrder a b) 0))
+(define (txn-is-link? txn)
+  (eqv? (xaccTransGetTxnType txn) TXN-TYPE-LINK))
 (define (split-is-payment? split)
   (txn-is-payment? (xaccSplitGetParent split)))
+
+(define (invoice->anchor inv)
+  (gnc:html-markup-anchor
+   (gnc:invoice-anchor-text inv)
+   (gncInvoiceGetID inv)))
+
+(define (split->reference split)
+  (let* ((txn (xaccSplitGetParent split))
+         (type (xaccTransGetTxnType txn)))
+    (cond
+     ((memv type (list TXN-TYPE-LINK TXN-TYPE-PAYMENT))
+      (let ((ref (gnc-get-num-action txn split)))
+        (gnc:make-html-text
+         (gnc:html-markup-anchor
+          (gnc:split-anchor-text split) ref))))
+     ((eqv? type TXN-TYPE-INVOICE)
+      (let ((inv (gncInvoiceGetInvoiceFromLot (xaccSplitGetLot split))))
+        (gnc:make-html-text (invoice->anchor inv)))))))
+
+(define (split->type-str split payable?)
+  (let* ((txn (xaccSplitGetParent split))
+         (amt (xaccSplitGetAmount split))
+         (refund? (if payable? (< amt 0) (> amt 0)))
+         (invoice (gncInvoiceGetInvoiceFromTxn txn)))
+    (cond
+     ((txn-is-invoice? txn) (gncInvoiceGetTypeString invoice))
+     ((txn-is-payment? txn) (if refund? (_ "Refund") (_ "Payment")))
+     ((txn-is-link? txn) (_ "Link"))
+     (else (_ "Unknown")))))
+
+;; input: list of html-text elements
+;; output: a cell with html-text interleaved with <br> tags
+(define (list->cell lst)
+  (let lp ((lst lst) (result '()))
+    (match lst
+      (() (apply gnc:make-html-text result))
+      ((elt . rest) (lp rest (cons* elt (gnc:html-markup-br) result))))))
+
+(define (splits->desc splits)
+  (list->cell (map (compose gnc:html-string-sanitize xaccSplitGetMemo) splits)))
 
 (define (make-aging-table splits to-date payable? date-type currency)
   (let ((table (gnc:make-html-table))
@@ -191,7 +303,7 @@
                      splits num-buckets to-date date-type (not payable?))))
 
     (gnc:html-table-set-col-headers!
-     table (list (_ "Prepayments")
+     table (list (_ "Pre-Payment")
                  (_ "Current")
                  (_ "0-30 days")
                  (_ "31-60 days")
@@ -210,21 +322,93 @@
 (define-syntax-rule (addif pred? elt)
   (if pred? (list elt) '()))
 
-(define (make-cell elt) (gnc:make-html-table-cell/markup "number-cell" elt))
-
+(define (make-section-heading-list column-vector owner-desc)
+  (define (make-heading cols str)
+    (gnc:make-html-table-cell/size/markup 1 cols "th" str))
+  (let ((lhs (num-cols column-vector 'lhs-cols))
+        (mid (num-cols column-vector 'mid-spac))
+        (rhs (num-cols column-vector 'rhs-cols)))
+    (append
+     ;; Translators: ~a History refers to main details table in owner
+     ;; report. ~a will be replaced with Customer, Vendor or Employee.
+     (addif (< 0 lhs) (make-heading lhs (format #f (_ "~a History") owner-desc)) )
+     (addif (< 0 mid) (make-heading mid #f))
+     (addif (< 0 rhs) (make-heading rhs (_ "Linked Details"))))))
 ;;
 ;; Make a row list based on the visible columns
 ;;
-(define (add-row table odd-row? column-vector date due-date num type-str
-                 memo currency amt credit debit sale tax link-rows)
-  (define empty-cols
-    (count identity
-           (map (lambda (f) (f column-vector))
-                (list date-col date-due-col num-col type-col
-                      memo-col sale-col tax-col credit-col
-                      debit-col value-col))))
+(define (add-row table odd-row? column-vector date due-date ref type-str
+                 desc currency amt debit credit sale tax lhs-class
+                 link-option link-rows)
+  (define nrows (if link-rows (length link-rows) 1))
+  (define (link-data->cols link-data)
+    (cond
+     ((link-data? link-data)
+      (append
+       (map
+        (lambda (str)
+          (let ((cell (gnc:make-html-table-cell str))
+                (rhs-class (link-data-rhs-class link-data)))
+            (when rhs-class
+              (gnc:html-table-cell-set-style!
+               cell "td" 'attribute (list "link-id" rhs-class)))
+            cell))
+        (append
+         (addif (date-col column-vector) (link-data-date link-data))
+         (addif (ref-col column-vector) (link-data-ref link-data))
+         (addif (type-col column-vector) (link-data-type link-data))
+         (addif (desc-col column-vector) (link-data-desc link-data))))
+       (map
+        (lambda (str)
+          (let ((cell (gnc:make-html-table-cell/markup "number-cell" str))
+                (rhs-class (link-data-rhs-class link-data)))
+            (when rhs-class
+              (gnc:html-table-cell-set-style!
+               cell "number-cell" 'attribute (list "link-id" rhs-class)))
+            cell))
+        (append
+         (addif (or (debit-col column-vector) (credit-col column-vector))
+                (link-data-partial-amount link-data))
+         (addif (or (debit-col column-vector) (credit-col column-vector))
+                (link-data-amount link-data))))))
+
+     ((link-desc-amount? link-data)
+      (let ((cols (num-cols column-vector 'rhs-span)))
+        (append
+         (map
+          (lambda (str)
+            (let ((cell (gnc:make-html-table-cell/size 1 cols str))
+                  (rhs-class (link-desc-amount-rhs-class link-data)))
+              (when rhs-class
+                (gnc:html-table-cell-set-style!
+                 cell "td" 'attribute (list "link-id" rhs-class)))
+              cell))
+          (addif (< 0 cols) (link-desc-amount-desc link-data)))
+         (map
+          (lambda (str)
+            (let ((cell (gnc:make-html-table-cell/size/markup 1 2 "number-cell" str))
+                  (rhs-class (link-desc-amount-rhs-class link-data)))
+              (when rhs-class
+                (gnc:html-table-cell-set-style!
+                 cell "number-cell" 'attribute (list "link-id" rhs-class)))
+              cell))
+          (addif (or (debit-col column-vector) (credit-col column-vector))
+                 (link-desc-amount-amount link-data))))))
+
+     ((link-blank? link-data)
+      (make-list (num-cols column-vector 'rhs-cols) #f))
+
+     (else link-data)))
   (define (cell amt)
-    (and amt (make-cell (gnc:make-gnc-monetary currency amt))))
+    (and amt (gnc:make-gnc-monetary currency amt)))
+  (define cell-nohoriz
+    (let ((cell (gnc:make-html-table-cell/size nrows 1 #f)))
+      (gnc:html-table-cell-set-style!
+       cell "td" 'attribute '("style" "border-bottom: none; border-top: none;"))
+      cell))
+  (define mid-span
+    (if (eq? link-option 'detailed) (num-cols column-vector 'mid-spac) 0))
+
   (let lp ((link-rows link-rows)
            (first-row? #t))
     (unless (null? link-rows)
@@ -232,23 +416,41 @@
           (gnc:html-table-append-row/markup!
            table (if odd-row? "normal-row" "alternate-row")
            (append
-            (addif (date-col column-vector) (qof-print-date date))
-            (addif (date-due-col column-vector)
-                   (and due-date (qof-print-date due-date)))
-            (addif (num-col column-vector)    (gnc:html-string-sanitize num))
-            (addif (type-col column-vector)   type-str)
-            (addif (memo-col column-vector)   (gnc:html-string-sanitize memo))
-            (addif (sale-col column-vector)   (cell sale))
-            (addif (tax-col column-vector)    (cell tax))
-            (addif (credit-col column-vector) (cell credit))
-            (addif (debit-col column-vector)  (cell (and debit (- debit))))
-            (addif (value-col column-vector)  (cell amt))
-            (car link-rows)))
+            (map
+             (lambda (str)
+               (let ((cell (gnc:make-html-table-cell/size nrows 1 str)))
+                 (when lhs-class
+                   (gnc:html-table-cell-set-style!
+                    cell "td" 'attribute (list "link-id" lhs-class)))
+                 cell))
+             (append
+              (addif (date-col column-vector) (qof-print-date date))
+              (addif (date-due-col column-vector)
+                     (and due-date (qof-print-date due-date)))
+              (addif (ref-col column-vector)    ref)
+              (addif (type-col column-vector)   type-str)
+              (addif (desc-col column-vector)   desc)))
+            (map
+             (lambda (str)
+               (let ((cell (gnc:make-html-table-cell/size/markup
+                            nrows 1 "number-cell" str)))
+                 (when lhs-class
+                   (gnc:html-table-cell-set-style!
+                    cell "number-cell" 'attribute (list "link-id" lhs-class)))
+                 cell))
+             (append
+              (addif (sale-col column-vector)    (cell sale))
+              (addif (tax-col column-vector)     (cell tax))
+              (addif (debit-col column-vector)   debit)
+              (addif (credit-col column-vector)  credit)))
+            (addif (bal-col column-vector)
+                   (gnc:make-html-table-cell/size/markup
+                    nrows 1 "number-cell" (cell amt)))
+            (addif (< 0 mid-span) cell-nohoriz)
+            (link-data->cols (car link-rows))))
           (gnc:html-table-append-row/markup!
            table (if odd-row? "normal-row" "alternate-row")
-           (cons
-            (gnc:make-html-table-cell/size 1 empty-cols #f)
-            (car link-rows))))
+           (link-data->cols (car link-rows))))
       (lp (cdr link-rows) #f))))
 
 (define (add-owner-table table splits acc start-date end-date date-type
@@ -256,107 +458,192 @@
   (define (AP-negate num)
     (if payable? (- num) num))
   (define currency (xaccAccountGetCommodity acc))
-  (define link-cols (assq-ref '((none . 0) (simple . 1) (detailed . 3)) link-option))
+  (define rhs-cols (assq-ref `((none . 0)
+                               (simple . 1)
+                               (detailed . ,(num-cols used-columns 'rhs-cols)))
+                             link-option))
+  (define mid-span
+    (if (eq? link-option 'detailed) (num-cols used-columns 'mid-spac) 0))
+
+  (define (split->anchor split negate?)
+    (gnc:html-markup-anchor
+     (gnc:split-anchor-text split)
+     (gnc:make-gnc-monetary
+      (xaccAccountGetCommodity (xaccSplitGetAccount split))
+      ((if negate? - +)
+       (AP-negate (xaccSplitGetAmount split))))))
+
   (define (print-totals total debit credit tax sale)
     (define (total-cell cell)
       (gnc:make-html-table-cell/markup "total-number-cell" cell))
     (define (make-cell amt)
       (total-cell (gnc:make-gnc-monetary currency amt)))
-    (define span
-      (count identity (map (lambda (f) (f used-columns))
-                           (list memo-col type-col num-col date-due-col date-col))))
+    (define period-span (num-cols used-columns 'ptt-span))
+    (define grand-span (num-cols used-columns 'lhs-cols))
     ;; print period totals
     (if (or (sale-col used-columns) (tax-col used-columns)
             (credit-col used-columns) (debit-col used-columns))
         (gnc:html-table-append-row/markup!
          table "grand-total"
          (append
-          (list (gnc:make-html-table-cell/markup
-                 "total-label-cell" (_ "Period Totals")))
-          (addif (>= span 2) (gnc:make-html-table-cell/size 1 (1- span) ""))
+          (addif (< 0 period-span) (gnc:make-html-table-cell/markup
+                                    "total-label-cell" (_ "Period Totals")))
+          (addif (< 1 period-span) (gnc:make-html-table-cell/size
+                                    1 (1- period-span) #f))
           (addif (sale-col used-columns)   (make-cell sale))
           (addif (tax-col used-columns)    (make-cell tax))
+          (addif (debit-col used-columns)  (make-cell debit))
           (addif (credit-col used-columns) (make-cell credit))
-          (addif (debit-col used-columns)  (make-cell (- debit)))
-          (addif (value-col used-columns) (make-cell (+ credit debit)))
-          (addif (> link-cols 0) (gnc:make-html-table-cell/size 1 link-cols #f)))))
+          (addif (bal-col used-columns)    (make-cell total))
+          (addif (< 0 rhs-cols) (gnc:make-html-table-cell/size
+                                 1 (+ mid-span rhs-cols) #f)))))
 
     ;; print grand total
-    (if (value-col used-columns)
+    (if (bal-col used-columns)
         (gnc:html-table-append-row/markup!
          table "grand-total"
          (append
-          (list (gnc:make-html-table-cell/markup
-                 "total-label-cell"
-                 (if (negative? total)
-                     (_ "Total Credit")
-                     (_ "Total Due")))
-                (gnc:make-html-table-cell/size/markup
-                 1 (value-col used-columns)
-                 "total-number-cell"
-                 (gnc:make-gnc-monetary currency total)))
-          (addif (> link-cols 0)
-                 (gnc:make-html-table-cell/size 1 link-cols #f)))))
+          (addif (< 1 grand-span)
+                 (gnc:make-html-table-cell/markup
+                  "total-label-cell"
+                  (if (negative? total)
+                      (_ "Total Credit")
+                      (_ "Total Due"))))
+          (addif (< 1 grand-span)
+                 (gnc:make-html-table-cell/size/markup
+                  1 (1- grand-span)
+                  "total-number-cell"
+                  (gnc:make-gnc-monetary currency total)))
+          (addif (< 0 rhs-cols)
+                 (gnc:make-html-table-cell/size 1 (+ mid-span rhs-cols) #f)))))
 
     ;; print aging table
     (gnc:html-table-append-row/markup!
      table "grand-total"
      (list (gnc:make-html-table-cell/size
-            1 (+ columns-used-size link-cols)
+            1 (+ grand-span mid-span rhs-cols)
             (make-aging-table splits
                               end-date
                               payable? date-type currency)))))
 
   (define (add-balance-row odd-row? total)
     (add-row table odd-row? used-columns start-date #f "" (_ "Balance") ""
-             currency total #f #f #f #f (list (make-list link-cols #f))))
+             currency total #f #f #f (list (make-list rhs-cols #f)) #f
+             link-option (case link-option
+                           ((none) '(()))
+                           ((simple) '((#f)))
+                           ((detailed) (list (make-link-blank))))))
 
   (define (make-invoice->payments-table invoice)
-    (define (tfr-split->row tfr-split)
-      (let* ((pmt-txn (xaccSplitGetParent tfr-split))
-             (tfr-acct (xaccSplitGetAccount tfr-split))
-             (tfr-curr (xaccAccountGetCommodity tfr-acct))
-             (tfr-amt (AP-negate (xaccSplitGetAmount tfr-split))))
-        (list
-         (qof-print-date (xaccTransGetDate pmt-txn))
-         (let ((num (gnc-get-num-action pmt-txn tfr-split)))
-           (if (string-null? num) (_ "Payment") num))
-         (make-cell
-          (gnc:make-html-text
-           (gnc:html-markup-anchor
-            (gnc:split-anchor-text tfr-split)
-            (gnc:make-gnc-monetary tfr-curr tfr-amt)))))))
-    (let* ((lot (gncInvoiceGetPostedLot invoice))
-           (pmt-splits (append-map
-                        (compose xaccTransGetPaymentAcctSplitList xaccSplitGetParent)
-                        (filter split-is-payment? (gnc-lot-get-split-list lot))))
-           (dedupe-splits (sort-and-delete-duplicates pmt-splits split<? equal?)))
-      (if (gncInvoiceIsPaid invoice)
-          (map tfr-split->row dedupe-splits)
-          (append (map tfr-split->row dedupe-splits)
-                  (list
-                   (list (gnc:make-html-table-cell/size 1 2 (_ "Outstanding"))
-                         (make-cell
-                          (gnc:make-gnc-monetary
-                           currency (AP-negate (gnc-lot-get-balance lot))))))))))
+    (let ((lot (gncInvoiceGetPostedLot invoice)))
+      (let lp ((lot-splits (gnc-lot-get-split-list lot))
+               (result '()))
+        (cond
+         ;; Finished result rows. Display them, and add Outstanding if
+         ;; invoice still not completely paid.
+         ((null? lot-splits)
+          (reverse
+           (if (gncInvoiceIsPaid invoice)
+               result
+               (cons (make-link-desc-amount
+                      (_ "UNPAID")
+                      (gnc:make-gnc-monetary
+                       currency (AP-negate (gnc-lot-get-balance lot)))
+                      (gncInvoiceReturnGUID invoice))
+                     result))))
 
-  (define (payment-txn->overpayment-and-invoices txn)
+         ;; this is invoice posting split. skip. has no payment data.
+         ((equal? (xaccSplitGetParent (car lot-splits))
+                  (gncInvoiceGetPostedTxn invoice))
+          (lp (cdr lot-splits) result))
+
+         ;; this is an invoice payment split (reduces the lot).
+         (else
+          (let* ((lot-split (car lot-splits))
+                 (lot-txn (xaccSplitGetParent lot-split)))
+
+            ;; each invoice payment split's peer splits are analysed.
+            (let lp1 ((lot-txn-splits (xaccTransGetSplitList lot-txn))
+                      (non-document '())
+                      (result result))
+              (cond
+
+               ;; finished. loop up, adding single row with non-document
+               ((null? lot-txn-splits)
+                (lp (cdr lot-splits)
+                    (if (null? non-document)
+                        result
+                        (cons (make-link-data
+                               (qof-print-date (xaccTransGetDate lot-txn))
+                               (split->reference lot-split)
+                               (split->type-str lot-split payable?)
+                               (splits->desc non-document)
+                               (gnc:make-html-text (split->anchor lot-split #t))
+                               (list->cell
+                                (map (lambda (s) (split->anchor s #f)) non-document))
+                               (gncTransGetGUID lot-txn))
+                              result))))
+
+               ;; this payment's peer split has same sign as the
+               ;; payment split. ignore.
+               ((sign-equal? (xaccSplitGetAmount (car lot-txn-splits))
+                             (xaccSplitGetAmount lot-split))
+                (lp1 (cdr lot-txn-splits) non-document result))
+
+               ;; this payment's peer APAR split is a document lot
+               ;; reducing split.
+               ((lot-split->posting-split (car lot-txn-splits)) =>
+                (lambda (posting-split)
+                  (let* ((lot-txn-split (car lot-txn-splits))
+                         (posting-txn (xaccSplitGetParent posting-split))
+                         (document (gncInvoiceGetInvoiceFromTxn posting-txn))
+                         (neg (gncInvoiceGetIsCreditNote document)))
+                    (lp1 (cdr lot-txn-splits)
+                         non-document
+                         (cons (make-link-data
+                                (qof-print-date (xaccTransGetDate posting-txn))
+                                (split->reference posting-split)
+                                (split->type-str posting-split payable?)
+                                (splits->desc (list posting-split))
+                                (gnc:make-html-text (split->anchor lot-split neg))
+                                (gnc:make-html-text (split->anchor posting-split neg))
+                                (gncInvoiceReturnGUID document))
+                               result)))))
+
+               ;; this payment's peer split can't find document. this
+               ;; is a regular payment or an old link txn. accumulate.
+               (else
+                (lp1 (cdr lot-txn-splits)
+                     (cons (car lot-txn-splits) non-document)
+                     result))))))))))
+
+
+
+  (define (payment-txn->payment-info txn)
     (let lp ((splits (xaccTransGetAPARAcctSplitList txn #f))
              (overpayment 0)
-             (invoices '()))
+             (invoices '())
+             (opposing-splits '()))
       (match splits
-        (() (cons (AP-negate overpayment) invoices))
+        (() (make-payment-info (AP-negate overpayment) invoices opposing-splits))
         ((split . rest)
-         (let ((invoice (gncInvoiceGetInvoiceFromLot (xaccSplitGetLot split))))
-           (if (null? invoice)
-               (lp rest
-                   (- overpayment (xaccSplitGetAmount split))
-                   invoices)
-               (lp rest
-                   overpayment
-                   (if (member invoice invoices)
-                       invoices
-                       (cons invoice invoices)))))))))
+         (let ((lot (xaccSplitGetLot split)))
+           (define (equal-to-split? s) (equal? s split))
+           (match (gncInvoiceGetInvoiceFromLot lot)
+             (() (let lp1 ((lot-splits (gnc-lot-get-split-list lot))
+                           (opposing-splits opposing-splits))
+                   (match lot-splits
+                     (() (lp rest
+                             (- overpayment (gnc-lot-get-balance lot))
+                             invoices
+                             opposing-splits))
+                     (((? equal-to-split?) . tail) (lp1 tail opposing-splits))
+                     ((head . tail) (lp1 tail (cons head opposing-splits))))))
+             (inv
+              (lp rest
+                  overpayment
+                  (cons (cons inv split) invoices)
+                  opposing-splits))))))))
 
   (define (make-payment->invoices-list txn)
     (list
@@ -364,75 +651,61 @@
       (apply
        gnc:make-html-text
        (map
-        (lambda (inv)
-          (gnc:html-markup-anchor
-           (gnc:invoice-anchor-text inv)
-           (gnc-get-num-action
-            (gncInvoiceGetPostedTxn inv)
-            #f)))
-        (cdr (payment-txn->overpayment-and-invoices txn)))))))
+        (lambda (inv-split-pair)
+          (invoice->anchor (car inv-split-pair)))
+        (payment-info-invoices (payment-txn->payment-info txn)))))))
 
-  (define (make-payment->invoices-table txn)
-    (define overpayment-and-invoices (payment-txn->overpayment-and-invoices txn))
-    (let lp ((invoices (cdr overpayment-and-invoices))
-             (result '()))
-      (match invoices
-        (()
-         (let ((overpayment (car overpayment-and-invoices)))
-           (reverse
-            (if (zero? overpayment)
-                result
-                (cons (list (gnc:make-html-table-cell/size 1 2 (_ "Prepayments"))
-                            (make-cell (gnc:make-gnc-monetary currency overpayment)))
-                      result)))))
-        ((inv . rest)
-         (lp rest
-             (cons (list
-                    (qof-print-date (gncInvoiceGetDatePosted inv))
-                    (gnc:make-html-text
-                     (gnc:html-markup-anchor
-                      (gnc:invoice-anchor-text inv)
-                      (gnc-get-num-action (gncInvoiceGetPostedTxn inv) #f)))
-                    (make-cell (gnc:make-gnc-monetary currency (invoice->total inv))))
-                   result))))))
+  (define (make-payment->payee-table txn)
 
-  (define (split->type-str split)
-    (let* ((txn (xaccSplitGetParent split))
-           (invoice (gncInvoiceGetInvoiceFromTxn txn)))
-      (cond
-       ((txn-is-invoice? txn)
-        (gnc:make-html-text
-         (gnc:html-markup-anchor
-          (gnc:invoice-anchor-text invoice)
-          (gncInvoiceGetTypeString invoice))))
-       ((txn-is-payment? txn)
-        (apply gnc:make-html-text
-               (map (lambda (pmt-split)
-                      (gnc:html-markup-anchor
-                       (gnc:split-anchor-text pmt-split)
-                       (_ "Payment")))
-                    (xaccTransGetPaymentAcctSplitList txn))))
-       (else (_ "Unknown")))))
+    (define payment-info (payment-txn->payment-info txn))
 
-  (define (invoice->sale invoice)
-    (and (not (null? invoice))
-         ((if (gncInvoiceGetIsCreditNote invoice) - identity)
-          (gncInvoiceGetTotalSubtotal invoice))))
+    (define invoices-list
+      (let lp ((invoice-split-pairs (payment-info-invoices payment-info))
+               (result '()))
+        (match invoice-split-pairs
+          (() result)
+          (((inv . APAR-split) . rest)
+           (let* ((posting-split (lot-split->posting-split APAR-split)))
+             (lp rest
+                 (cons (make-link-data
+                        (qof-print-date (gncInvoiceGetDatePosted inv))
+                        (gnc:make-html-text (invoice->anchor inv))
+                        (gncInvoiceGetTypeString inv)
+                        (splits->desc (list APAR-split))
+                        (gnc:make-html-text (split->anchor APAR-split #t))
+                        (gnc:make-html-text (split->anchor posting-split #f))
+                        (gncInvoiceReturnGUID inv))
+                       result)))))))
 
-  (define (invoice->tax invoice)
-    (and (not (null? invoice))
-         ((if (gncInvoiceGetIsCreditNote invoice) - identity)
-          (gncInvoiceGetTotalTax invoice))))
+    (define overpayment-list
+      (let ((overpayment (payment-info-overpayment payment-info)))
+        (if (zero? overpayment)
+            '()
+            (list (make-link-desc-amount
+                   (_ "Pre-Payment")
+                   (gnc:make-gnc-monetary currency overpayment)
+                   (gncTransGetGUID txn))))))
 
-  (define (invoice->total invoice)
-    (and (not (null? invoice))
-         ((if (gncInvoiceGetIsCreditNote invoice) - identity)
-          (gncInvoiceGetTotal invoice))))
+    (define payments-list
+      (map
+       (lambda (s)
+         (make-link-data
+          (qof-print-date (xaccTransGetDate (xaccSplitGetParent s)))
+          (split->reference s)
+          (split->type-str s payable?)
+          (splits->desc (list s))
+          (gnc:make-html-text (split->anchor s #f))
+          (gnc:make-html-text (split->anchor s #f))
+          (gncTransGetGUID (xaccSplitGetParent s))))
+       (payment-info-opposing-splits payment-info)))
 
-  (define (invoice->due-date invoice)
-    (and (not (null? invoice))
-         (gncInvoiceIsPosted invoice)
-         (gncInvoiceGetDateDue invoice)))
+    (append invoices-list payments-list overpayment-list))
+
+  (define (amount->anchor split amount)
+    (gnc:make-html-text
+     (gnc:html-markup-anchor
+      (gnc:split-anchor-text split)
+      (gnc:make-gnc-monetary currency amount))))
 
   (let lp ((printed? #f)
            (odd-row? #t)
@@ -442,12 +715,13 @@
            (credit 0)
            (tax 0)
            (sale 0))
+
     (cond
 
      ((null? splits)
       ;;Balance row may not have been added if all transactions were before
       ;;start-date (and no other rows would be added either) so add it now
-      (when (and (not printed?) (value-col used-columns) (not (zero? total)))
+      (when (and (not printed?) (bal-col used-columns) (not (zero? total)))
         (add-balance-row odd-row? total))
       (print-totals total debit credit tax sale)
       (gnc:html-table-set-style!
@@ -471,54 +745,82 @@
       (gnc:warn "sanity check fail" txn)
       (lp printed? odd-row? (cdr splits) total debit credit tax sale))
 
+     ;; txn-date < start-date. skip display, accumulate amounts
+     ((< (xaccTransGetDate (xaccSplitGetParent (car splits))) start-date)
+      (let* ((txn (xaccSplitGetParent (car splits)))
+             (value (AP-negate (xaccTransGetAccountAmount txn acc))))
+        (lp printed? odd-row? (cdr splits) (+ total value)
+            debit credit tax sale)))
+
+     ;; if balance row hasn't been rendered, consider
+     ;; adding here.  skip if value=0.
+     ((not printed?)
+      (let ((print? (and (bal-col used-columns) (not (zero? total)))))
+        (if print? (add-balance-row odd-row? total))
+        (lp #t (not print?) splits total debit credit tax sale)))
+
      ;; start printing txns.
-     (else
+     ((txn-is-invoice? (xaccSplitGetParent (car splits)))
       (let* ((split (car splits))
              (txn (xaccSplitGetParent split))
              (date (xaccTransGetDate txn))
-             (value (AP-negate (xaccTransGetAccountAmount txn acc)))
+             (orig-value (xaccTransGetAccountAmount txn acc))
+             (value (AP-negate orig-value))
              (invoice (gncInvoiceGetInvoiceFromTxn txn)))
 
-        (cond
-         ;; txn-date < start-date. skip display, accumulate amounts
-         ((< date start-date)
-          (lp printed? odd-row? (cdr splits) (+ total value)
-              (if (negative? value) (+ debit value) debit)
-              (if (negative? value) credit (+ credit value))
-              tax sale))
+        (define (CN-negate fn)
+          (if (gncInvoiceGetIsCreditNote invoice) (- (fn invoice)) (fn invoice)))
 
-         ;; if balance row hasn't been rendered, consider
-         ;; adding here.  skip if value=0.
-         ((not printed?)
-          (let ((print? (and (value-col used-columns) (not (zero? total)))))
-            (if print? (add-balance-row odd-row? total))
-            (lp #t (not print?) splits total debit credit tax sale)))
+        (add-row
+         table odd-row? used-columns date (gncInvoiceGetDateDue invoice)
+         (split->reference split)
+         (split->type-str split payable?)
+         (splits->desc (list split))
+         currency (+ total value)
+         (and (>= orig-value 0) (amount->anchor split orig-value))
+         (and (< orig-value 0) (amount->anchor split (- orig-value)))
+         (CN-negate gncInvoiceGetTotalSubtotal) (CN-negate gncInvoiceGetTotalTax)
+         (gncInvoiceReturnGUID invoice)
+         link-option
+         (case link-option
+           ((simple) (list (list (and (gncInvoiceIsPaid invoice) (_ "Paid")))))
+           ((detailed) (make-invoice->payments-table invoice))
+           (else '(()))))
 
-         (else
-          (add-row
-           table odd-row? used-columns date (invoice->due-date invoice)
-           (gnc-get-num-action txn split) (split->type-str split)
-           (xaccSplitGetMemo split) currency (+ total value)
-           (and (>= value 0) value) (and (< value 0) value)
-           (invoice->sale invoice) (invoice->tax invoice)
-           (cond
-            ((and (txn-is-invoice? txn) (eq? link-option 'simple))
-             (if (gncInvoiceIsPaid invoice)
-                 (list (list (_ "Paid")))
-                 (list (list #f))))
-            ((and (txn-is-invoice? txn) (eq? link-option 'detailed))
-             (make-invoice->payments-table invoice))
-            ((and (txn-is-payment? txn) (eq? link-option 'simple))
-             (make-payment->invoices-list txn))
-            ((and (txn-is-payment? txn) (eq? link-option 'detailed))
-             (make-payment->invoices-table txn))
-            (else '(()))))
+        (lp printed? (not odd-row?) (cdr splits) (+ total value)
+            (if (< 0 orig-value) (+ debit orig-value) debit)
+            (if (< 0 orig-value) credit (- credit orig-value))
+            (+ tax (CN-negate gncInvoiceGetTotalTax))
+            (+ sale (CN-negate gncInvoiceGetTotalSubtotal)))))
 
-          (lp printed? (not odd-row?) (cdr splits) (+ total value)
-              (if (negative? value) (+ debit value) debit)
-              (if (negative? value) credit (+ credit value))
-              (+ tax (or (invoice->tax invoice) 0))
-              (+ sale (or (invoice->sale invoice) 0))))))))))
+     ((txn-is-payment? (xaccSplitGetParent (car splits)))
+      (let* ((split (car splits))
+             (txn (xaccSplitGetParent split))
+             (date (xaccTransGetDate txn))
+             (orig-value (xaccTransGetAccountAmount txn acc))
+             (value (AP-negate orig-value)))
+
+        (add-row
+         table odd-row? used-columns date #f
+         (split->reference split)
+         (split->type-str split payable?)
+         (splits->desc (xaccTransGetAPARAcctSplitList txn #t))
+         currency (+ total value)
+         (and (>= orig-value 0) (amount->anchor split orig-value))
+         (and (< orig-value 0) (amount->anchor split (- orig-value)))
+         #f #f
+         (gncTransGetGUID txn)
+         link-option
+         (case link-option
+           ((simple) (make-payment->invoices-list txn))
+           ((detailed) (make-payment->payee-table txn))
+           (else '(()))))
+
+        (lp printed? (not odd-row?) (cdr splits) (+ total value)
+            (if (< 0 orig-value) (+ debit orig-value) debit)
+            (if (< 0 orig-value) credit (- credit orig-value))
+            tax
+            sale))))))
 
 (define (options-generator owner-type)
 
@@ -579,18 +881,18 @@
 
   (gnc:register-inv-option
    (gnc:make-simple-boolean-option
-    (N_ "Display Columns") credit-header
-    "hac" (N_ "Display the period credits column?") #t))
-
-  (gnc:register-inv-option
-   (gnc:make-simple-boolean-option
     (N_ "Display Columns") debit-header
-    "had" (N_ "Display a period debits column?") #t))
+    "hac" (N_ "Display the period debits column?") #t))
 
   (gnc:register-inv-option
    (gnc:make-simple-boolean-option
-    (N_ "Display Columns") amount-header
-    "hb" (N_ "Display the transaction amount?") #t))
+    (N_ "Display Columns") credit-header
+    "had" (N_ "Display a period credits column?") #t))
+
+  (gnc:register-inv-option
+   (gnc:make-simple-boolean-option
+    (N_ "Display Columns") balance-header
+    "hb" (N_ "Display a running balance?") #t))
 
   (gnc:register-inv-option
    (gnc:make-multichoice-option
@@ -711,7 +1013,13 @@ invoices and amounts.")))))
          (query (qof-query-create-for-splits))
          (document (gnc:make-html-document))
          (table (gnc:make-html-table))
-         (headings (make-heading-list used-columns link-option))
+         (section-headings (make-section-heading-list used-columns owner-descr))
+         (headings (make-heading-list
+                    used-columns link-option
+                    (if (eqv? (gncOwnerGetType (gncOwnerGetEndOwner owner))
+                              GNC-OWNER-CUSTOMER)
+                        ACCT-TYPE-RECEIVABLE
+                        ACCT-TYPE-PAYABLE)))
          (report-title (string-append (_ owner-descr) " " (_ "Report"))))
 
     (cond
@@ -819,9 +1127,15 @@ invoices and amounts.")))))
 
           (make-break! document)
 
-          (gnc:html-table-set-col-headers! table headings)
+          (gnc:html-table-set-multirow-col-headers!
+           table
+           (if (eq? link-option 'detailed)
+               (list section-headings headings)
+               (list headings)))
 
-          (gnc:html-document-add-object! document table))))))
+          (gnc:html-document-add-object! document table)
+
+          (gnc:html-document-add-object! document javascript))))))
 
     document))
 

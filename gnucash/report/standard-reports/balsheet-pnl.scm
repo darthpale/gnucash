@@ -96,15 +96,6 @@ below parent and children groups."))
 (define optname-amount-links (N_ "Display amounts as hyperlinks"))
 (define opthelp-amount-links (N_ "Shows each amounts in the table as a hyperlink to a register or report."))
 
-;; closing entries filter - for P&L report
-(define pagename-entries "Closing Entries")
-(define optname-closing-pattern (N_ "Closing Entries pattern"))
-(define opthelp-closing-pattern (N_ "Any text in the Description column which identifies closing entries."))
-(define optname-closing-casing (N_ "Closing Entries pattern is case-sensitive"))
-(define opthelp-closing-casing (N_ "Causes the Closing Entries Pattern match to be case-sensitive."))
-(define optname-closing-regexp (N_ "Closing Entries Pattern is regular expression"))
-(define opthelp-closing-regexp (N_ "Causes the Closing Entries Pattern to be treated as a regular expression."))
-
 ;; section labels
 (define optname-label-sections (N_ "Label sections"))
 (define opthelp-label-sections (N_ "Whether or not to include a label for sections."))
@@ -347,23 +338,7 @@ also show overall period profit & loss."))
       (add-option
        (gnc:make-simple-boolean-option
         gnc:pagename-general optname-include-overall-period
-        "c6" opthelp-include-overall-period #f))
-
-      ;; closing entry match criteria
-      (add-option
-       (gnc:make-string-option
-        pagename-entries optname-closing-pattern
-        "a" opthelp-closing-pattern (_ "Closing Entries")))
-
-      (add-option
-       (gnc:make-simple-boolean-option
-        pagename-entries optname-closing-casing
-        "b" opthelp-closing-casing #f))
-
-      (add-option
-       (gnc:make-simple-boolean-option
-        pagename-entries optname-closing-regexp
-        "c" opthelp-closing-regexp #f)))
+        "c6" opthelp-include-overall-period #f)))
 
     (gnc:options-set-default-section options gnc:pagename-general)
 
@@ -432,24 +407,28 @@ also show overall period profit & loss."))
   (define (make-narrow-cell)
     (gnc:make-html-table-cell/min-width 1))
 
-  (define (add-indented-row indent label label-markup amount-indent rest)
+  (define (add-indented-row indent label label-markup row-markup amount-indent rest)
     (when (or (not depth-limit) (<= indent depth-limit))
-      (gnc:html-table-append-row!
-       table
-       (append (if disable-account-indent?
-                   '() (make-list-thunk indent make-narrow-cell))
-               (list (if label-markup
-                         (gnc:make-html-table-cell/size/markup
-                          1 (if disable-account-indent? 1 (- maxindent indent))
-                          label-markup label)
-                         (gnc:make-html-table-cell/size
-                          1 (if disable-account-indent? 1 (- maxindent indent))
-                          label)))
-               (gnc:html-make-empty-cells
-                (if amount-indenting? (1- amount-indent) 0))
-               rest
-               (gnc:html-make-empty-cells
-                (if amount-indenting? (- maxindent amount-indent) 0))))))
+      (let* ((account-cell (if label-markup
+                               (gnc:make-html-table-cell/size/markup
+                                1 (if disable-account-indent? 1 (- maxindent indent))
+                                label-markup label)
+                               (gnc:make-html-table-cell/size
+                                1 (if disable-account-indent? 1 (- maxindent indent))
+                                label)))
+             (row (append
+                   (if disable-account-indent?
+                       '()
+                       (make-list-thunk indent make-narrow-cell))
+                   (list account-cell)
+                   (gnc:html-make-empty-cells
+                    (if amount-indenting? (1- amount-indent) 0))
+                   rest
+                   (gnc:html-make-empty-cells
+                    (if amount-indenting? (- maxindent amount-indent) 0)))))
+        (if row-markup
+            (gnc:html-table-append-row/markup! table row-markup row)
+            (gnc:html-table-append-row! table row)))))
 
   (define (monetary+ . monetaries)
     ;; usage: (monetary+ monetary...)
@@ -574,6 +553,7 @@ also show overall period profit & loss."))
                           (if account-style-normal?
                               "text-cell"
                               "total-label-cell")
+                          #f
                           (- maxindent lvl)
                           (map
                            (lambda (col-datum)
@@ -599,6 +579,7 @@ also show overall period profit & loss."))
         (add-indented-row lvl-curr
                           (render-account curr #f)
                           "text-cell"
+                          #f
                           (- maxindent lvl-curr account-indent)
                           (map
                            (lambda (col-datum)
@@ -620,6 +601,7 @@ also show overall period profit & loss."))
       (add-indented-row 0
                         title
                         "total-label-cell"
+                        "primary-subheading"
                         maxindent
                         (if get-col-header-fn
                             (map
@@ -668,6 +650,7 @@ also show overall period profit & loss."))
       (add-indented-row 0
                         (string-append (_ "Total For ") title)
                         "total-label-cell"
+                        "primary-subheading"
                         maxindent
                         (map
                          (lambda (col-datum)
@@ -795,10 +778,11 @@ also show overall period profit & loss."))
                                                  (gnc:make-commodity-collector))
                       #:split->elt
                       (lambda (s)
-                        (val-coll 'add
-                                  (xaccTransGetCurrency (xaccSplitGetParent s))
-                                  (xaccSplitGetValue s))
-                        (make-datum s (amt->monetary (xaccSplitGetBalance s))
+                        (unless (xaccTransGetIsClosingTxn (xaccSplitGetParent s))
+                          (val-coll 'add
+                                    (xaccTransGetCurrency (xaccSplitGetParent s))
+                                    (xaccSplitGetValue s)))
+                        (make-datum s (amt->monetary (xaccSplitGetNoclosingBalance s))
                                     (gnc:collector+ val-coll)))))))
            accounts))
 
@@ -1139,10 +1123,7 @@ also show overall period profit & loss."))
               (gnc:html-markup-anchor chart (_ "Barchart")))))))
 
      ((eq? report-type 'pnl)
-      (let* ((closing-str (get-option pagename-entries optname-closing-pattern))
-             (closing-cased (get-option pagename-entries optname-closing-casing))
-             (closing-regexp (get-option pagename-entries optname-closing-regexp))
-             (include-overall-period? (get-option gnc:pagename-general
+      (let* ((include-overall-period? (get-option gnc:pagename-general
                                                   optname-include-overall-period))
              (col-idx->datepair
               (lambda (idx)
@@ -1161,44 +1142,13 @@ also show overall period profit & loss."))
                                           (cons (list-ref balancelist idx)
                                                 (list-ref balancelist (1+ idx))))))
 
-             (closing-entries (let ((query (qof-query-create-for-splits)))
-                                (qof-query-set-book query (gnc-get-current-book))
-                                (xaccQueryAddAccountMatch
-                                 query income-expense
-                                 QOF-GUID-MATCH-ANY QOF-QUERY-AND)
-                                (if (and closing-str (not (string-null? closing-str)))
-                                    (xaccQueryAddDescriptionMatch
-                                     query closing-str closing-cased closing-regexp
-                                     QOF-COMPARE-CONTAINS QOF-QUERY-AND))
-                                (xaccQueryAddClosingTransMatch query #t QOF-QUERY-OR)
-                                (let ((splits (qof-query-run query)))
-                                  (qof-query-destroy query)
-                                  splits)))
-
-             ;; this function will query the above closing-entries for
-             ;; splits within the date range, and produce the total
-             ;; amount for these closing entries
-             (closing-adjustment
-              (lambda (account col-idx)
-                (define datepair (col-idx->datepair col-idx))
-                (define (include-split? split)
-                  (and (equal? (xaccSplitGetAccount split) account)
-                       (<= (car datepair)
-                           (xaccTransGetDate (xaccSplitGetParent split))
-                           (cdr datepair))))
-                (let ((account-closing-splits (filter include-split? closing-entries)))
-                  (gnc:make-gnc-monetary
-                   (xaccAccountGetCommodity account)
-                   (apply + (map xaccSplitGetAmount account-closing-splits))))))
-
              (get-cell-monetary-fn
               (lambda (account col-idx)
                 (let* ((balances (assoc-ref accounts-balances account))
                        (monetarypair (col-idx->monetarypair balances col-idx)))
                   (monetary-less
                    (cdr monetarypair)
-                   (car monetarypair)
-                   (closing-adjustment account col-idx)))))
+                   (car monetarypair)))))
 
              (get-cell-anchor-fn
               (lambda (account col-idx)

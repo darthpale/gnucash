@@ -76,6 +76,7 @@ function(make_gnucash_potfiles)
     ${CMAKE_SOURCE_DIR}/*.gschema.xml.in ${CMAKE_SOURCE_DIR}/*.appdata.xml.in.in
     ${CMAKE_SOURCE_DIR}/*.keys.in ${CMAKE_SOURCE_DIR}/*.scm
     ${CMAKE_SOURCE_DIR}/*/qofbookslots.h
+    ${CMAKE_SOURCE_DIR}/*/gnc-commodity.h
   )
 
   # Only consider files in a selection of the source directories and
@@ -90,7 +91,7 @@ function(make_gnucash_potfiles)
         AND
         NOT ${path} MATCHES "/[.][^/]*$")
         list (APPEND GOOD_FILES ${path})
-    endif ()
+    endif()
   endforeach (path)
 
   # Remove the paths that we have marked as explicitly skipped
@@ -131,7 +132,7 @@ function(make_gnucash_potfiles)
   set(gnucash_pot_depends ${POTFILE_DEPS}  CACHE INTERNAL "List of files with translatable strings. If any of these change, gnucash.pot should be regenerated")
 endfunction()
 
-if(BUILDING_FROM_VCS)
+if(BUILD_GNUCASH_POT)
 
   make_gnucash_potfiles()
 
@@ -141,16 +142,16 @@ if(BUILDING_FROM_VCS)
 
   if (${XGETTEXT} STREQUAL "XGETTEXT-NOTFOUND")
     message(FATAL_ERROR "Can't find the 'xgettext' program.")
-  endif ()
+  endif()
 
   add_custom_command(OUTPUT gnucash.pot
         COMMAND ${CMAKE_COMMAND}
            -D TOP_SRC_DIR=${CMAKE_SOURCE_DIR}
            -D PO_SRC_DIR=${CMAKE_CURRENT_SOURCE_DIR}
            -D PO_BIN_DIR=${CMAKE_CURRENT_BINARY_DIR}
-           -D PACKAGE=${PACKAGE}
+           -D PROJECT_NAME=${PROJECT_NAME}
            -D PACKAGE_NAME=${PACKAGE_NAME}
-           -D PACKAGE_VERSION=${PACKAGE_VERSION}
+           -D PROJECT_VERSION=${PROJECT_VERSION}
            -D XGETTEXT=${XGETTEXT}
            -P ${CMAKE_CURRENT_SOURCE_DIR}/gnucash-pot.cmake
         DEPENDS ${gnucash_pot_depends}

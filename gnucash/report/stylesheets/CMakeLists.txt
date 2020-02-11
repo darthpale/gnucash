@@ -19,7 +19,7 @@ target_compile_definitions(gncmod-stylesheets PRIVATE -DG_LOG_DOMAIN=\"gnc.repor
 set(LIB_DIR ${CMAKE_INSTALL_LIBDIR}/gnucash)
 if (WIN32)
   set(LIB_DIR ${CMAKE_INSTALL_BINDIR})
-endif(WIN32)
+endif()
 
 
 if (APPLE)
@@ -36,6 +36,7 @@ install(TARGETS gncmod-stylesheets
 # Scheme
 
 set(stylesheets_SCHEME_1
+  stylesheet-css.scm
   stylesheet-plain.scm
   stylesheet-footer.scm
   stylesheet-head-or-tail.scm

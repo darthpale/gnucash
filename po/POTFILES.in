@@ -486,6 +486,7 @@ gnucash/report/standard-reports/general-journal.scm
 gnucash/report/standard-reports/general-ledger.scm
 gnucash/report/standard-reports/income-gst-statement.scm
 gnucash/report/standard-reports/income-statement.scm
+gnucash/report/standard-reports/lot-viewer.scm
 gnucash/report/standard-reports/net-charts.scm
 gnucash/report/standard-reports/portfolio.scm
 gnucash/report/standard-reports/price-scatter.scm
@@ -496,6 +497,7 @@ gnucash/report/standard-reports/transaction.scm
 gnucash/report/standard-reports/trial-balance.scm
 gnucash/report/stylesheets/gncmod-stylesheets.c
 gnucash/report/stylesheets/gnc-plugin-stylesheets.c
+gnucash/report/stylesheets/stylesheet-css.scm
 gnucash/report/stylesheets/stylesheet-footer.scm
 gnucash/report/stylesheets/stylesheet-head-or-tail.scm
 gnucash/report/stylesheets/stylesheet-plain.scm
@@ -637,6 +639,7 @@ libgnucash/engine/gnc-budget.c
 libgnucash/engine/gncBusGuile.c
 libgnucash/engine/gncBusiness.c
 libgnucash/engine/gnc-commodity.c
+libgnucash/engine/gnc-commodity.h
 libgnucash/engine/gncCustomer.c
 libgnucash/engine/gnc-date.cpp
 libgnucash/engine/gnc-datetime.cpp

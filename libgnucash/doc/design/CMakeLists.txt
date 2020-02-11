@@ -22,8 +22,8 @@ set(UPDATED_MONTH "${CURRENT_MONTH} ${CURRENT_YEAR}")
 set(VERSION_TEXI_IN
   "@set UPDATED ${UPDATED}
 @set UPDATED-MONTH ${UPDATED_MONTH}
-@set EDITION ${VERSION}
-@set VERSION ${VERSION}
+@set EDITION ${PROJECT_VERSION}
+@set VERSION ${PROJECT_VERSION}
 ")
 
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/version.texi ${VERSION_TEXI_IN})
@@ -38,7 +38,7 @@ if (NOT ${MAKEINFO} STREQUAL "MAKEINFO-NOTFOUND")
     COMMAND ${MAKEINFO} -I ${TEXI_BINARY_DIR} ${TEXI_SOURCE_FILE}
     DEPENDS ${gnucash_design_TEXINFOS}
   )
-endif (NOT ${MAKEINFO} STREQUAL "MAKEINFO-NOTFOUND")
+endif()
 dist_add_generated (${BUILDING_FROM_VCS} gnucash-design.info)
 
 set_dist_list(doc_design_DIST CMakeLists.txt gnucash-design.texi ${gnucash_design_TEXINFOS})

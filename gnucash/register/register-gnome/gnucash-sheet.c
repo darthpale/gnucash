@@ -407,8 +407,10 @@ gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
         sheet->direct_update_cell =
             gnucash_sheet_check_direct_update_cell (sheet, virt_loc);
     }
-
-    gtk_widget_grab_focus (GTK_WIDGET(sheet));
+    // when a gui refresh is called, we end up here so only grab the focus
+    // if the sheet is showing on the current plugin_page
+    if (sheet->sheet_has_focus)
+        gtk_widget_grab_focus (GTK_WIDGET(sheet));
 }
 
 
@@ -755,6 +757,12 @@ gnucash_sheet_is_read_only (GnucashSheet *sheet)
     g_return_val_if_fail (sheet != NULL, TRUE);
     g_return_val_if_fail (GNUCASH_IS_SHEET(sheet), TRUE);
     return gnc_table_model_read_only (sheet->table->model);
+}
+
+void
+gnucash_sheet_set_has_focus (GnucashSheet *sheet, gboolean has_focus)
+{
+    sheet->sheet_has_focus = has_focus;
 }
 
 static void
@@ -2288,12 +2296,17 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
             continue;
 
         if (cell_col < style->ncols)
+        {
             for (cell_row = 0; cell_row < style->nrows; cell_row++)
             {
                 VirtualLocation virt_loc;
                 const char *text;
 
-                virt_loc.vcell_loc = vcell_loc;
+                if (virt_row == 0)
+                    virt_loc.vcell_loc = sheet->table->current_cursor_loc.vcell_loc;
+                else
+                    virt_loc.vcell_loc = vcell_loc;
+
                 virt_loc.phys_row_offset = cell_row;
                 virt_loc.phys_col_offset = cell_col;
 
@@ -2320,15 +2333,16 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
                 if ((g_strcmp0 (type_name, DATE_CELL_TYPE_NAME) == 0)
                     || (g_strcmp0 (type_name, COMBO_CELL_TYPE_NAME) == 0))
                 {
-                    width += gnc_item_edit_get_button_width (item_edit);
+                    width += gnc_item_edit_get_button_width (item_edit) + 2; // add 2 for the button margin
                 }
                 max = MAX (max, width);
             }
+        }
     }
 
     g_object_unref (layout);
 
-    return max + 1; // add 1 for the border
+    return max;
 }
 
 void
@@ -2757,6 +2771,9 @@ gnucash_sheet_new (Table *table)
     g_return_val_if_fail (table != NULL, NULL);
 
     sheet = gnucash_sheet_create (table);
+
+    /* on create, the sheet can grab the focus */
+    sheet->sheet_has_focus = TRUE;
 
     /* The cursor */
     sheet->cursor = gnucash_cursor_new (sheet);

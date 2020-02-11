@@ -1099,7 +1099,7 @@ is_trans_readonly_and_warn (GtkWindow *parent, Transaction *trans)
                                         "%s", title);
         gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
                 "%s", _("The date of this transaction is older than the \"Read-Only Threshold\" set for this book. "
-                        "This setting can be changed in File -> Properties -> Accounts."));
+                        "This setting can be changed in File->Properties->Accounts."));
         gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
         return TRUE;
@@ -1928,6 +1928,14 @@ gnc_split_reg_focus_on_sheet (GNCSplitReg *gsr)
     // Make sure the sheet is the focus
     if (!gtk_widget_has_focus(GTK_WIDGET (sheet)))
         gtk_widget_grab_focus (GTK_WIDGET (sheet));
+}
+
+void
+gnc_split_reg_set_sheet_focus (GNCSplitReg *gsr, gboolean has_focus)
+{
+    GnucashRegister *reg = gsr->reg;
+    GnucashSheet *sheet = gnucash_register_get_sheet (reg);
+    gnucash_sheet_set_has_focus (sheet, has_focus);
 }
 
 void
