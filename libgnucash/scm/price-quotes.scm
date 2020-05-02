@@ -25,6 +25,7 @@
 (export gnc:book-add-quotes) ;; called from gnome/dialog-price-edit-db.c
 (export gnc:price-quotes-install-sources)
 
+(use-modules (gnucash gettext))
 (use-modules (gnucash utilities)) 
 (use-modules (gnucash gnc-module))
 (use-modules (gnucash core-utils))
@@ -198,10 +199,11 @@
          commodity-list)
 
         ;; Now translate to just what gnc-fq-helper expects.
-        (append
-         (hash-map->list cons commodity-hash)
-         (map (lambda (cmd) (cons (car cmd) (list (cdr cmd))))
-              currency-list-filtered)))))
+        (and (or (pair? currency-list-filtered) (pair? commodity-list))
+             (append
+              (hash-map->list cons commodity-hash)
+              (map (lambda (cmd) (cons (car cmd) (list (cdr cmd))))
+                   currency-list-filtered))))))
 
   (define (fq-call-data->fq-calls fq-call-data)
     ;; take an output element from book->commodity->fq-call-data and

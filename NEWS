@@ -1,5 +1,52 @@
 Version history:
 ------- -------
+3.10 - 10 April 2020
+The eleventh release of the 3.x stable series.
+
+This is a snap release to reverse the changes to the reconcile
+window's filtering reconciled transactions with a reconcile date after
+the current statement date when computing the starting balance. It
+seems that many users' books have accounts with reconcile dates in the
+future that were suddenly filtered out, creating an incorrect starting
+balance and making it impossible to reconcile the book.
+
+The following bugs have been fixed:
+    Bug 620848 - Transfer Funds window - add Notes field
+    Bug 797006 - Balance is misleading in open subaccounts when different
+		 currencies are involved
+    Bug 797318 - Amounts ending in zero displayed as fractions
+    Bug 797659 - Liabilities in budget report no longer calculate correctly
+		 candidate fix.
+    Bug 797666 - libgnucash/engine/test/test-recurrence.c: In function
+		 'check_valid': 'result' may be used uninitialized
+    Bug 797676 - Register displays amount in transaction currency...
+		 instead of register currency.
+
+Other repairs or enhancements not marked as bugs:
+    [window-reconcile] when reconciling, warn on splits having a
+      reconcile date > statement_date
+    [window-reconcile] when inputing statement_date, warn if it's after today
+    [find-transactions] add search for reconciled date
+    Show transaction value, not amount, for registers with subaccounts.
+      If the register has subaccounts in different currencies and a
+      transaction has splits in more than one, the transaction will
+      incorrectly appear to be unbalanced if we total amounts because the
+      balancing logic works on split values.
+    Revert "Bug 797659 - Liabilities in budget report no longer calculate
+      correctly"
+      Reverted for snap release. Not tested thoroughly yet.
+    Add instance argument to Session constructor in python bindings.
+      Enables a python console to connect to the running GnuCash's session.
+    Make python console less noisy without --debug.
+    Provide locals and globals of calling context to the python console's
+      shell on shell init
+    Make pycons/ishell.py compatible with Python 3 and current IPython
+    [eguile-utilities] prevent crash in balsheet-eg.scm
+    [eguile] escape-html -> gnc:html-string-sanitize
+    [qif-to-gnc] Properly mark intra-QIF internal transfers.
+
+Translations Updated: Ukrainian.
+
 3.8 - 29 December 2019
 The ninth release of the 3.x stable series.
 

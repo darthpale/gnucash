@@ -1401,6 +1401,13 @@ be excluded from periodic reporting.")
                                (case level
                                  ((primary) optname-prime-sortkey)
                                  ((secondary) optname-sec-sortkey))))
+             (data (if (and (any (lambda (c) (eq? 'bal-bf (vector-ref c 5)))
+                                 calculated-cells)
+                            (memq sortkey ACCOUNT-SORTING-TYPES))
+                       ;; Translators: Balance b/f stands for "Balance
+                       ;; brought forward".
+                       (string-append data ": " (_ "Balance b/f"))
+                       data))
              (renderer-fn (keylist-get-info
                            (sortkey-list BOOK-SPLIT-ACTION)
                            sortkey 'renderer-fn))
@@ -1733,7 +1740,7 @@ be excluded from periodic reporting.")
 
             (for-each
              (lambda (prime-collector sec-collector tot-collector value)
-               (when value
+               (when (gnc:gnc-monetary? value)
                  (let ((comm (gnc:gnc-monetary-commodity value))
                        (val (gnc:gnc-monetary-amount value)))
                  (prime-collector 'add comm val)
@@ -1939,18 +1946,14 @@ be excluded from periodic reporting.")
   (define BOOK-SPLIT-ACTION
     (qof-book-use-split-action-for-num-field (gnc-get-current-book)))
   (define (is-filter-member split account-list)
-    (let* ((txn (xaccSplitGetParent split))
-           (splitcount (xaccTransCountSplits txn))
-           (is-in-account-list? (lambda (acc) (member acc account-list))))
-      (cond
-       ((= splitcount 2)
-        (is-in-account-list?
-         (xaccSplitGetAccount (xaccSplitGetOtherSplit split))))
-       ((> splitcount 2)
-        (or-map is-in-account-list?
-                (map xaccSplitGetAccount
-                     (delete split (xaccTransGetSplitList txn)))))
-       (else #f))))
+    (define (same-split? s) (equal? s split))
+    (define (from-account? s) (member (xaccSplitGetAccount s) account-list))
+    (let lp ((splits (xaccTransGetSplitList (xaccSplitGetParent split))))
+      (match splits
+        (() #f)
+        (((? same-split?) . rest) (lp rest))
+        (((? from-account?) . _) #t)
+        ((_ . rest) (lp rest)))))
 
   (gnc:report-starting (opt-val gnc:pagename-general gnc:optname-reportname))
 
@@ -2194,6 +2197,7 @@ be excluded from periodic reporting.")
            (gnc:make-html-text
             (gnc:html-markup-h3
              (format #f
+                     ;; Translators: Both ~a's are dates
                      (_ "From ~a to ~a")
                      (qof-print-date begindate)
                      (qof-print-date enddate)))))

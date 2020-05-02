@@ -2517,7 +2517,7 @@ gnc_main_window_class_init (GncMainWindowClass *klass)
      *
      * The "page_changed" signal is emitted when a new page is
      * selected in the notebook of a GncMainWindow.  This can be
-     * used to to adjust menu actions based upon which page is
+     * used to adjust menu actions based upon which page is
      * currently displayed in a window.
      */
     main_window_signals[PAGE_CHANGED] =
@@ -2797,6 +2797,9 @@ gnc_main_window_disconnect (GncMainWindow *window,
                                          G_CALLBACK(gnc_main_window_popup_menu_cb), page);
     g_signal_handlers_disconnect_by_func(G_OBJECT(page->notebook_page),
                                          G_CALLBACK(gnc_main_window_button_press_cb), page);
+
+    // Remove the page_changed signal callback
+    gnc_plugin_page_disconnect_page_changed (GNC_PLUGIN_PAGE(page));
 
     /* Disconnect the page and summarybar from the window */
     priv = GNC_MAIN_WINDOW_GET_PRIVATE(window);
@@ -3716,7 +3719,7 @@ gnc_quartz_shutdown (GtkosxApplication *theApp, gpointer data)
     /* Do Nothing. It's too late. */
 }
 /* Should quit responds to NSApplicationBlockTermination; returning
- * TRUE means "don't terminate", FALSE means "do terminate". 
+ * TRUE means "don't terminate", FALSE means "do terminate".
  */
 static gboolean
 gnc_quartz_should_quit (GtkosxApplication *theApp, GncMainWindow *window)
@@ -4328,6 +4331,9 @@ gnc_main_window_cmd_window_move_page (GtkAction *action, GncMainWindow *window)
     notebook = GTK_NOTEBOOK (priv->notebook);
     tab_widget = gtk_notebook_get_tab_label (notebook, page->notebook_page);
     menu_widget = gtk_notebook_get_menu_label (notebook, page->notebook_page);
+
+    // Remove the page_changed signal callback
+    gnc_plugin_page_disconnect_page_changed (GNC_PLUGIN_PAGE(page));
 
     /* Ref the page components, then remove it from its old window */
     g_object_ref(page);

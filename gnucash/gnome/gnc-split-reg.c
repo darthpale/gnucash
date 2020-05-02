@@ -511,9 +511,16 @@ gsr_update_summary_label( GtkWidget *label,
 {
     gnc_numeric amount;
     char string[256];
+    const gchar *label_str = NULL;
+    GtkWidget *text_label, *hbox;
+    gchar *tooltip;
 
     if ( label == NULL )
         return;
+
+    hbox = g_object_get_data (G_OBJECT(label), "text_box");
+    text_label = g_object_get_data (G_OBJECT(label), "text_label");
+    label_str = gtk_label_get_text (GTK_LABEL(text_label));
 
     amount = (*getter)( leader );
 
@@ -534,6 +541,13 @@ gsr_update_summary_label( GtkWidget *label,
 
     gnc_set_label_color( label, amount );
     gtk_label_set_text( GTK_LABEL(label), string );
+
+    if (label_str)
+    {
+        tooltip = g_strdup_printf ("%s %s", label_str, string);
+        gtk_widget_set_tooltip_text (GTK_WIDGET(hbox), tooltip);
+        g_free (tooltip);
+    }
 }
 
 static
@@ -555,7 +569,7 @@ gsr_redraw_all_cb (GnucashRegister *g_reg, gpointer data)
 
     commodity = xaccAccountGetCommodity( leader );
 
-    /* no EURO converson, if account is already EURO or no EURO currency */
+    /* no EURO conversion, if account is already EURO or no EURO currency */
     if (commodity != NULL)
         euro = (gnc_is_euro_currency( commodity ) &&
                 (strncasecmp(gnc_commodity_get_mnemonic(commodity), "EUR", 3)));
@@ -2418,7 +2432,7 @@ GtkWidget*
 add_summary_label (GtkWidget *summarybar, gboolean pack_start, const char *label_str, GtkWidget *extra)
 {
     GtkWidget *hbox;
-    GtkWidget *label;
+    GtkWidget *text_label, *secondary_label;
 
     hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_set_homogeneous (GTK_BOX (hbox), FALSE);
@@ -2427,18 +2441,21 @@ add_summary_label (GtkWidget *summarybar, gboolean pack_start, const char *label
     else
         gtk_box_pack_end( GTK_BOX(summarybar), hbox, FALSE, FALSE, 5 );
 
-    label = gtk_label_new( label_str );
-    gnc_label_set_alignment(label, 1.0, 0.5 );
-    gtk_box_pack_start( GTK_BOX(hbox), label, FALSE, FALSE, 0 );
+    text_label = gtk_label_new (label_str);
+    gnc_label_set_alignment (text_label, 1.0, 0.5 );
+    gtk_label_set_ellipsize (GTK_LABEL(text_label), PANGO_ELLIPSIZE_END);
+    gtk_box_pack_start (GTK_BOX(hbox), text_label, FALSE, FALSE, 0);
 
-    label = gtk_label_new( "" );
-    gnc_label_set_alignment(label, 1.0, 0.5 );
-    gtk_box_pack_start( GTK_BOX(hbox), label, FALSE, FALSE, 0 );
+    secondary_label = gtk_label_new ( "" );
+    g_object_set_data (G_OBJECT(secondary_label), "text_label", text_label);
+    g_object_set_data (G_OBJECT(secondary_label), "text_box", hbox);
+    gnc_label_set_alignment (secondary_label, 1.0, 0.5 );
+    gtk_box_pack_start (GTK_BOX(hbox), secondary_label, FALSE, FALSE, 0);
 
     if (extra != NULL)
         gtk_box_pack_start( GTK_BOX(hbox), extra, FALSE, FALSE, 0 );
 
-    return label;
+    return secondary_label;
 }
 
 static void
@@ -2602,27 +2619,38 @@ gnc_split_reg_determine_read_only( GNCSplitReg *gsr )
     {
         dialog_args *args;
         char *string = NULL;
-        switch (gnc_split_reg_get_placeholder(gsr))
+        reg = gnc_ledger_display_get_split_register( gsr->ledger );
+        if(reg->mismatched_commodities)
         {
-        case PLACEHOLDER_NONE:
-            /* stay as false. */
-            return;
+            string = _("This account may not be edited because its"
+                       " subaccounts have mismatched commodities or currencies."
+                       "You need to open each account individually to "
+                       "edit transactions.");
+        }
+        else
+        {
+            switch (gnc_split_reg_get_placeholder(gsr))
+            {
+            case PLACEHOLDER_NONE:
+                /* stay as false. */
+                return;
 
-        case PLACEHOLDER_THIS:
-            string = _("This account may not be edited. If you want "
-                             "to edit transactions in this register, please "
-                             "open the account options and turn off the "
-                             "placeholder checkbox.");
-            break;
+            case PLACEHOLDER_THIS:
+                string = _("This account may not be edited. If you want "
+                                 "to edit transactions in this register, please "
+                                 "open the account options and turn off the "
+                                 "placeholder checkbox.");
+                break;
 
-        default:
-            string = _("One of the sub-accounts selected may not be "
-                             "edited. If you want to edit transactions in "
-                             "this register, please open the sub-account "
-                             "options and turn off the placeholder checkbox. "
-                             "You may also open an individual account instead "
-                             "of a set of accounts.");
-            break;
+            default:
+                string = _("One of the sub-accounts selected may not be "
+                                 "edited. If you want to edit transactions in "
+                                 "this register, please open the sub-account "
+                                 "options and turn off the placeholder checkbox. "
+                                 "You may also open an individual account instead "
+                                 "of a set of accounts.");
+                break;
+            }
         }
         gsr->read_only = TRUE;
         /* Put up a warning dialog */

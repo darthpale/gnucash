@@ -3,7 +3,7 @@
 cmake_minimum_required (VERSION 3.5)
 
 project (gnucash
-    VERSION 3.8
+    VERSION 3.10
 )
 
 enable_testing()
@@ -62,8 +62,14 @@ option (DISABLE_DEPRECATED_GNOME "don't use deprecated gnome functions" OFF)
 # Use gsettings-desktop-schemas for a better integration with GNOME
 set(COMPILE_GSCHEMAS ON CACHE BOOL "Compile the GSettings schema")
 
-set(GNUCASH_BUILD_ID "" CACHE STRING "Overrides the GnuCash build identification (Build ID) which defaults to a description of the vcs commit from which gnucash is built. Distributions may want to insert a package management based version number instead")
 # GENERATE_SWIG_WRAPPERS - Controls whether to generate the swig wrappers for guile and python. If not set the wrappers will only be generated when building from a git worktree, commented out here, but will be evaluated later on in this file
+
+# Support for downstream packagers
+set(GNUCASH_BUILD_ID "" CACHE STRING "Overrides the GnuCash build identification (Build ID) which defaults to a description of the vcs commit from which gnucash is built. Distributions may want to insert a package management based version number instead")
+# In addition to the GNUCASH_BUILD_ID environment variable, packagers can overwrite
+# gnucash/gnome/gnucash.releases.xml with (package) release details to be included
+# in the appdata file. It should follow appdata <release> node conventions.
+
 
 # Check that all of the absolute install paths are inside
 # ${CMAKE_INSTALL_PREFIX}. If they're not, disable binreloc as it
@@ -180,8 +186,8 @@ if (WIN32)
   set(REGEX_LDFLAGS "-L${REGEX_LIB_PATH} -lregex")
   #set(LIBXSLT_INCLUDE_DIR ${CMAKE_PREFIX_PATH}/libxslt/include)
   #set(LIBXSLT_XSLTPROC_EXECUTABLE ${CMAKE_PREFIX_PATH}/libxslt/bin/xsltproc)
-#Prevent creating a console window on startup.
-  set(CMAKE_EXE_LINKER_FLAGS -mwindows)
+#Prevent creating a console window on startup and harden the executable.
+  set(CMAKE_EXE_LINKER_FLAGS "-mwindows -Wl,--nxcompat -Wl,--dynamicbase")
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -656,6 +662,7 @@ set(gnucash_DOCS
     ChangeLog.2016
     ChangeLog.2017
     ChangeLog.2018
+    ChangeLog.2019
     DOCUMENTERS
     HACKING
     LICENSE
@@ -813,7 +820,7 @@ add_subdirectory(cmake)
 
 if (BUILDING_FROM_VCS)
     add_custom_target(ChangeLog ALL
-        COMMAND ${GIT_EXECUTABLE} log --format=\"%ad %aN %n%n%x09* %s%d%n\" --date=short --since=2019-01-01 > ${CMAKE_BINARY_DIR}/ChangeLog
+        COMMAND ${GIT_EXECUTABLE} log --format=\"%ad %aN %n%n%x09* %s%d%n\" --date=short --since=2020-01-01 > ${CMAKE_BINARY_DIR}/ChangeLog
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
     install(FILES ${CMAKE_BINARY_DIR}/ChangeLog DESTINATION ${CMAKE_INSTALL_DOCDIR})
@@ -946,8 +953,14 @@ install(CODE
 #For windows, copy in some DLLs from Mingw
 
 if (WIN32)
-  find_library(LIBSTDC++ libstdc++-6.dll)
-  find_library(LIBDW2 libgcc_s_dw2-1.dll)
+  find_file(LIBSTDC++ libstdc++-6.dll)
+  if (NOT LIBSTDC++)
+    message(FATAL_ERROR "libstdc++ not found.")
+  endif()
+  find_file(LIBDW2 libgcc_s_dw2-1.dll)
+  if (NOT LIBDW2)
+    message(FATAL_ERROR "libgcc_s_dw2-l not found.")
+  endif()
   set(MINGW_DLLS ${LIBSTDC++} ${LIBDW2})
   install(PROGRAMS ${MINGW_DLLS} DESTINATION ${CMAKE_INSTALL_BINDIR})
   file(COPY ${MINGW_DLLS} DESTINATION ${BINDIR_BUILD}

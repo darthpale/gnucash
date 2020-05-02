@@ -62,6 +62,7 @@
 #include "gnc-ui.h"
 #include "gnc-ui-util.h"
 #include "gnucash-sheet.h"
+#include "gnc-session.h"
 
 #include "gnc-split-reg.h"
 
@@ -646,7 +647,8 @@ gnc_sxed_split_check_account (GncSxEditorDialog *sxed, Split *s,
                       NULL);
     acct = xaccAccountLookup (acct_guid, gnc_get_current_book ());
     guid_free (acct_guid);
-    if (acct == NULL)
+    // If the split is being destroyed always return TRUE.
+    if (acct == NULL && !qof_instance_get_destroying(s))
         return FALSE;
     split_cmdty = xaccAccountGetCommodity(acct);
     split_amount = xaccSplitGetAmount(s);
@@ -1124,6 +1126,7 @@ gnc_ui_scheduled_xaction_editor_dialog_create (GtkWindow *parent,
     GtkBuilder *builder;
     GtkWidget *button;
     int i;
+    int id;
     GList *dlgExists = NULL;
 
     static struct widgetSignalCallback
@@ -1209,10 +1212,12 @@ gnc_ui_scheduled_xaction_editor_dialog_create (GtkWindow *parent,
                             TRUE, TRUE, 0 );
     }
 
-    gnc_register_gui_component( DIALOG_SCHEDXACTION_EDITOR_CM_CLASS,
-                                NULL, /* no refresh handler */
-                                sxed_close_handler,
-                                sxed );
+    id = gnc_register_gui_component( DIALOG_SCHEDXACTION_EDITOR_CM_CLASS,
+                                     NULL, /* no refresh handler */
+                                     sxed_close_handler,
+                                     sxed );
+    // This ensure this dialog is closed when the session is closed.
+    gnc_gui_component_set_session (id, gnc_get_current_session());
 
     g_signal_connect( sxed->dialog, "delete_event",
                       G_CALLBACK(sxed_delete_event), sxed );
@@ -1595,7 +1600,6 @@ gnc_sxed_update_cal(GncSxEditorDialog *sxed)
     g_date_clear(&start_date, 1);
 
     gnc_frequency_save_to_recurrence(sxed->gncfreq, &recurrences, &start_date);
-    g_date_subtract_days(&start_date, 1);
     recurrenceListNextInstance(recurrences, &start_date, &first_date);
 
     /* Deal with the fact that this SX may have been run before [the
@@ -1606,10 +1610,10 @@ gnc_sxed_update_cal(GncSxEditorDialog *sxed)
         last_sx_inst = xaccSchedXactionGetLastOccurDate(sxed->sx);
         if (g_date_valid(last_sx_inst)
             && g_date_valid(&first_date)
-            && g_date_compare(last_sx_inst, &first_date) != 0)
+            && g_date_compare(last_sx_inst, &first_date) > 0)
         {
             /* last occurrence will be passed as initial date to update store
-             * later on as well */
+             * later on as well, but only if it's past first_date */
             start_date = *last_sx_inst;
             recurrenceListNextInstance(recurrences, &start_date, &first_date);
         }
