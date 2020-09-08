@@ -189,6 +189,29 @@ const char * gnc_get_reconcile_str (char reconciled_flag);
 const char * gnc_get_reconcile_valid_flags (void);
 const char * gnc_get_reconcile_flag_order (void);
 
+#define WASSOC 'w'
+#define FASSOC 'f'
+
+/** Get a string containing association valid flags
+ *
+ *  @return a string containing the list of associated flags
+ */
+const char *gnc_get_association_valid_flags (void);
+
+/** Get a string containing association flag order
+ *
+ * @return a string containing the association flag change order
+ */
+const char *gnc_get_association_flag_order (void);
+
+/** Get a string representing the association type
+ *
+ * @param  association_flag The flag to convert into a string
+ *
+ * @return the i18n'd association string
+ */
+const char *gnc_get_association_str (char association_flag);
+
 typedef enum
 {
     EQUITY_OPENING_BALANCE,
@@ -303,6 +326,9 @@ GNCPrintAmountInfo gnc_account_print_info (const Account *account,
 GNCPrintAmountInfo gnc_split_amount_print_info (Split *split,
         gboolean use_symbol);
 
+GNCPrintAmountInfo gnc_price_print_info (const gnc_commodity *curr,
+        gboolean use_symbol);
+
 GNCPrintAmountInfo gnc_share_print_info_places (int decplaces);
 GNCPrintAmountInfo gnc_default_share_print_info (void);
 GNCPrintAmountInfo gnc_default_price_print_info (const gnc_commodity *curr);
@@ -364,6 +390,10 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
 /* Initialization ***************************************************/
 
 void gnc_ui_util_init (void);
+
+/* Remove callback preferences **************************************/
+
+void gnc_ui_util_remove_registered_prefs (void);
 
 #endif
 /** @} */

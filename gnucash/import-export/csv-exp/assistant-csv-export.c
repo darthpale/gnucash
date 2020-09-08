@@ -106,6 +106,8 @@ static const gchar *start_trans_string = N_(
             " require further manipulation to get them in a format you can use.\n\n"
             "Each Transaction will appear once in the export and will be listed in"
             " the order the accounts were processed\n\n"
+            "Price/Rate output format is controlled by the Preference setting,\n"
+            " General->Force Prices to display as decimals\n\n"
             "Select the settings you require for the file and then click \"Next\" to proceed"
             " or \"Cancel\" to abort the export.\n");
 
@@ -116,6 +118,8 @@ static const gchar *start_trans_simple_string = N_(
             " manipulation to get them in a format you can use. Each Transaction will"
             " appear once in the export and will be listed in the order the accounts"
             " were processed\n\n"
+            "Price/Rate output format is controlled by the Preference setting,\n"
+            " General->Force Prices to display as decimals\n\n"
             "By selecting the simple layout, the output will be equivalent to a single"
             " row register view and as such some of the transfer detail could be lost.\n\n"
             "Select the settings you require for the file and then click \"Next\" to proceed"
@@ -855,8 +859,9 @@ csv_export_assistant_create (CsvExportInfo *info)
     gnc_builder_add_from_file  (builder , "assistant-csv-export.glade", "csv_export_assistant");
     info->assistant = GTK_WIDGET(gtk_builder_get_object (builder, "csv_export_assistant"));
 
-    // Set the style context for this assistant so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(info->assistant), "GncAssistExport");
+    // Set the name for this assistant so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(info->assistant), "gnc-id-assistant-csv-export");
+    gnc_widget_style_context_add_class (GTK_WIDGET(info->assistant), "gnc-class-exports");
 
     /* Load default settings */
     load_settings (info);
@@ -938,6 +943,7 @@ csv_export_assistant_create (CsvExportInfo *info)
 
         /* Start date info */
         info->csvd.start_date = gnc_date_edit_new (gnc_time (NULL), FALSE, FALSE);
+        gtk_widget_set_sensitive (info->csvd.start_date, FALSE);
         hbox = GTK_WIDGET(gtk_builder_get_object (builder, "start_date_hbox"));
         gtk_box_pack_start (GTK_BOX(hbox), info->csvd.start_date, TRUE, TRUE, 0);
         gtk_widget_show (info->csvd.start_date);
@@ -947,6 +953,7 @@ csv_export_assistant_create (CsvExportInfo *info)
 
         /* End date info */
         info->csvd.end_date = gnc_date_edit_new (gnc_time (NULL), FALSE, FALSE);
+        gtk_widget_set_sensitive (info->csvd.end_date, FALSE);
         hbox = GTK_WIDGET(gtk_builder_get_object (builder, "end_date_hbox"));
         gtk_box_pack_start (GTK_BOX(hbox), info->csvd.end_date, TRUE, TRUE, 0);
         gtk_widget_show (info->csvd.end_date);

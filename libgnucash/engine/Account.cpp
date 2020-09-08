@@ -25,6 +25,10 @@
 
 #include <config.h>
 
+extern "C" {
+#include "gnc-prefs.h"
+}
+
 #include <glib.h>
 #include <glib/gi18n.h>
 #include <stdlib.h>
@@ -44,6 +48,7 @@
 #include "guid.hpp"
 
 #include <numeric>
+#include <map>
 
 static QofLogModule log_module = GNC_MOD_ACCOUNT;
 
@@ -101,6 +106,7 @@ enum
 
     PROP_HIDDEN,                        /* Table slot exists, but in KVP in memory & xml */
     PROP_PLACEHOLDER,                   /* Table slot exists, but in KVP in memory & xml */
+    PROP_AUTO_INTEREST,
     PROP_FILTER,                        /* KVP */
     PROP_SORT_ORDER,                    /* KVP */
     PROP_SORT_REVERSED,
@@ -126,6 +132,46 @@ enum
 
 #define GET_PRIVATE(o)  \
     ((AccountPrivate*)g_type_instance_get_private((GTypeInstance*)o, GNC_TYPE_ACCOUNT))
+
+/* This map contains a set of strings representing the different column types. */
+static const std::map<GNCAccountType, const char*> gnc_acct_debit_strs = {
+    { ACCT_TYPE_NONE,       N_("Funds In") },
+    { ACCT_TYPE_BANK,       N_("Deposit") },
+    { ACCT_TYPE_CASH,       N_("Receive") },
+    { ACCT_TYPE_CREDIT,     N_("Payment") },
+    { ACCT_TYPE_ASSET,      N_("Increase") },
+    { ACCT_TYPE_LIABILITY,  N_("Decrease") },
+    { ACCT_TYPE_STOCK,      N_("Buy") },
+    { ACCT_TYPE_MUTUAL,     N_("Buy") },
+    { ACCT_TYPE_CURRENCY,   N_("Buy") },
+    { ACCT_TYPE_INCOME,     N_("Charge") },
+    { ACCT_TYPE_EXPENSE,    N_("Expense") },
+    { ACCT_TYPE_PAYABLE,    N_("Payment") },
+    { ACCT_TYPE_RECEIVABLE, N_("Invoice") },
+    { ACCT_TYPE_TRADING,    N_("Decrease") },
+    { ACCT_TYPE_EQUITY,     N_("Decrease") },
+};
+static const char* dflt_acct_debit_str = N_("Debit");
+
+/* This map contains a set of strings representing the different column types. */
+static const std::map<GNCAccountType, const char*> gnc_acct_credit_strs = {
+    { ACCT_TYPE_NONE,       N_("Funds Out") },
+    { ACCT_TYPE_BANK,       N_("Withdrawal") },
+    { ACCT_TYPE_CASH,       N_("Spend") },
+    { ACCT_TYPE_CREDIT,     N_("Charge") },
+    { ACCT_TYPE_ASSET,      N_("Decrease") },
+    { ACCT_TYPE_LIABILITY,  N_("Increase") },
+    { ACCT_TYPE_STOCK,      N_("Sell") },
+    { ACCT_TYPE_MUTUAL,     N_("Sell") },
+    { ACCT_TYPE_CURRENCY,   N_("Sell") },
+    { ACCT_TYPE_INCOME,     N_("Income") },
+    { ACCT_TYPE_EXPENSE,    N_("Rebate") },
+    { ACCT_TYPE_PAYABLE,    N_("Bill") },
+    { ACCT_TYPE_RECEIVABLE, N_("Payment") },
+    { ACCT_TYPE_TRADING,    N_("Increase") },
+    { ACCT_TYPE_EQUITY,     N_("Increase") },
+};
+static const char* dflt_acct_credit_str = N_("Credit");
 
 /********************************************************************\
  * Because I can't use C++ for this project, doesn't mean that I    *
@@ -192,7 +238,7 @@ gchar *gnc_account_name_violations_errmsg (const gchar *separator, GList* invali
         {
             gchar *tmp_list = NULL;
 
-            tmp_list = g_strconcat (account_list, "\n", node->data, NULL );
+            tmp_list = g_strconcat (account_list, "\n", node->data, nullptr);
             g_free ( account_list );
             account_list = tmp_list;
         }
@@ -415,6 +461,9 @@ gnc_account_get_property (GObject         *object,
     case PROP_HIDDEN:
         g_value_set_boolean(value, xaccAccountGetHidden(account));
         break;
+    case PROP_AUTO_INTEREST:
+        g_value_set_boolean (value, xaccAccountGetAutoInterest (account));
+        break;
     case PROP_PLACEHOLDER:
         g_value_set_boolean(value, xaccAccountGetPlaceholder(account));
         break;
@@ -539,6 +588,9 @@ gnc_account_set_property (GObject         *object,
         break;
     case PROP_HIDDEN:
         xaccAccountSetHidden(account, g_value_get_boolean(value));
+        break;
+    case PROP_AUTO_INTEREST:
+        xaccAccountSetAutoInterest (account, g_value_get_boolean (value));
         break;
     case PROP_PLACEHOLDER:
         xaccAccountSetPlaceholder(account, g_value_get_boolean(value));
@@ -930,6 +982,16 @@ gnc_account_class_init (AccountClass *klass)
 
     g_object_class_install_property
     (gobject_class,
+     PROP_AUTO_INTEREST,
+     g_param_spec_boolean ("auto-interest-transfer",
+                           "Auto Interest",
+                           "Whether an interest transfer should be automatically  "
+                           "added before reconcile.",
+                           FALSE,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE)));
+    
+    g_object_class_install_property
+    (gobject_class,
      PROP_PLACEHOLDER,
      g_param_spec_boolean ("placeholder",
                            "Placeholder",
@@ -1107,7 +1169,7 @@ gnc_book_get_root_account (QofBook *book)
     if (!book) return NULL;
     col = qof_book_get_collection (book, GNC_ID_ROOT_ACCOUNT);
     root = gnc_coll_get_root_account (col);
-    if (root == NULL)
+    if (root == NULL && !qof_book_shutting_down(book))
         root = gnc_account_create_root(book);
     return root;
 }
@@ -1797,6 +1859,29 @@ gnc_account_set_balance_dirty (Account *acc)
     priv->balance_dirty = TRUE;
 }
 
+void gnc_account_set_defer_bal_computation (Account *acc, gboolean defer)
+{
+    AccountPrivate *priv;
+    
+    g_return_if_fail (GNC_IS_ACCOUNT (acc));
+    
+    if (qof_instance_get_destroying (acc))
+        return;
+    
+    priv = GET_PRIVATE (acc);
+    priv->defer_bal_computation = defer;
+}
+
+gboolean gnc_account_get_defer_bal_computation (Account *acc)
+{
+    AccountPrivate *priv;
+    if (!acc)
+        return false;
+    priv = GET_PRIVATE (acc);
+    return priv->defer_bal_computation;
+}
+
+
 /********************************************************************\
 \********************************************************************/
 
@@ -2152,7 +2237,7 @@ xaccAccountRecomputeBalance (Account * acc)
 
     priv = GET_PRIVATE(acc);
     if (qof_instance_get_editlevel(acc) > 0) return;
-    if (!priv->balance_dirty) return;
+    if (!priv->balance_dirty || priv->defer_bal_computation) return;
     if (qof_instance_get_destroying(acc)) return;
     if (qof_book_shutting_down(qof_instance_get_book(acc))) return;
 
@@ -3226,7 +3311,7 @@ xaccAccountGetCommodity (const Account *acc)
 gnc_commodity * gnc_account_get_currency_or_parent(const Account* account)
 {
     gnc_commodity * commodity;
-    g_assert(account);
+    g_return_val_if_fail (account, NULL);
 
     commodity = xaccAccountGetCommodity (account);
     if (gnc_commodity_is_currency(commodity))
@@ -3983,6 +4068,34 @@ xaccAccountSetTaxUSCopyNumber (Account *acc, gint64 copy_number)
     xaccAccountCommitEdit (acc);
 }
 
+/*********************************************************************\
+\ ********************************************************************/
+
+
+const char *gnc_account_get_debit_string (GNCAccountType acct_type)
+{
+    if (gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL, GNC_PREF_ACCOUNTING_LABELS))
+        return dflt_acct_debit_str;
+
+    auto result = gnc_acct_debit_strs.find(acct_type);
+    if (result != gnc_acct_debit_strs.end())
+        return _(result->second);
+    else
+        return _(dflt_acct_debit_str);
+}
+
+const char *gnc_account_get_credit_string (GNCAccountType acct_type)
+{
+    if (gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL, GNC_PREF_ACCOUNTING_LABELS))
+        return dflt_acct_credit_str;
+
+    auto result = gnc_acct_credit_strs.find(acct_type);
+    if (result != gnc_acct_credit_strs.end())
+        return _(result->second);
+    else
+        return _(dflt_acct_credit_str);
+}
+
 /********************************************************************\
 \********************************************************************/
 
@@ -4017,6 +4130,21 @@ xaccAccountGetDescendantPlaceholder (const Account *acc)
 
     g_list_free(descendants);
     return ret;
+}
+
+/********************************************************************\
+ \********************************************************************/
+
+gboolean
+xaccAccountGetAutoInterest (const Account *acc)
+{
+    return boolean_from_key (acc, {KEY_RECONCILE_INFO, "auto-interest-transfer"});
+}
+
+void
+xaccAccountSetAutoInterest (Account *acc, gboolean val)
+{
+    set_boolean_key (acc, {KEY_RECONCILE_INFO, "auto-interest-transfer"}, val);
 }
 
 /********************************************************************\
@@ -4318,6 +4446,39 @@ gboolean xaccAccountIsAssetLiabType(GNCAccountType t)
     }
 }
 
+GNCAccountType
+xaccAccountTypeGetFundamental (GNCAccountType t)
+{
+    switch (t)
+    {
+        case ACCT_TYPE_BANK:
+        case ACCT_TYPE_STOCK:
+        case ACCT_TYPE_MONEYMRKT:
+        case ACCT_TYPE_CHECKING:
+        case ACCT_TYPE_SAVINGS:
+        case ACCT_TYPE_MUTUAL:
+        case ACCT_TYPE_CURRENCY:
+        case ACCT_TYPE_CASH:
+        case ACCT_TYPE_ASSET:
+        case ACCT_TYPE_RECEIVABLE:
+            return ACCT_TYPE_ASSET;
+        case ACCT_TYPE_CREDIT:
+        case ACCT_TYPE_LIABILITY:
+        case ACCT_TYPE_PAYABLE:
+        case ACCT_TYPE_CREDITLINE:
+            return ACCT_TYPE_LIABILITY;
+        case ACCT_TYPE_INCOME:
+            return ACCT_TYPE_INCOME;
+        case ACCT_TYPE_EXPENSE:
+            return ACCT_TYPE_EXPENSE;
+        case ACCT_TYPE_EQUITY:
+            return ACCT_TYPE_EQUITY;
+        case ACCT_TYPE_TRADING:
+        default:
+            return ACCT_TYPE_NONE;
+    }
+}
+
 gboolean xaccAccountIsAPARType(GNCAccountType t)
 {
     switch (t)
@@ -4547,28 +4708,6 @@ xaccAccountClearReconcilePostpone (Account *acc)
 /********************************************************************\
 \********************************************************************/
 
-/* xaccAccountGetAutoInterestXfer: determine whether the auto interest
- * xfer option is enabled for this account, and return that value.
- * If it is not defined for the account, return the default value.
- */
-gboolean
-xaccAccountGetAutoInterestXfer (const Account *acc, gboolean default_value)
-{
-    return boolean_from_key (acc, {KEY_RECONCILE_INFO, "auto-interest-transfer"});
-}
-
-/********************************************************************\
-\********************************************************************/
-
-void
-xaccAccountSetAutoInterestXfer (Account *acc, gboolean option)
-{
-    set_boolean_key (acc, {KEY_RECONCILE_INFO, "auto-interest-transfer"}, option);
-}
-
-/********************************************************************\
-\********************************************************************/
-
 const char *
 xaccAccountGetLastNum (const Account *acc)
 {
@@ -4611,7 +4750,7 @@ GetOrMakeOrphanAccount (Account *root, gnc_commodity * currency)
     }
 
     accname = g_strconcat (_("Orphaned Gains"), "-",
-                           gnc_commodity_get_mnemonic (currency), NULL);
+                           gnc_commodity_get_mnemonic (currency), nullptr);
 
     /* See if we've got one of these going already ... */
     acc = gnc_account_lookup_by_name(root, accname);
@@ -5700,11 +5839,13 @@ gnc_account_imap_get_info (Account *acc, const char *category)
 /*******************************************************************************/
 
 gchar *
-gnc_account_get_map_entry (Account *acc, const char *full_category)
+gnc_account_get_map_entry (Account *acc, const char *head, const char *category)
 {
     GValue v = G_VALUE_INIT;
     gchar *text = NULL;
-    std::vector<std::string> path {full_category};
+    std::vector<std::string> path {head};
+    if (category)
+        path.emplace_back (category);
     if (qof_instance_has_path_slot (QOF_INSTANCE (acc), path))
     {
         qof_instance_get_path_kvp (QOF_INSTANCE (acc), &v, path);
@@ -5767,6 +5908,8 @@ static void
 gnc_account_book_end(QofBook* book)
 {
     Account *root_account = gnc_book_get_root_account(book);
+    if (!root_account)
+        return;
     xaccAccountBeginEdit(root_account);
     xaccAccountDestroy(root_account);
 }

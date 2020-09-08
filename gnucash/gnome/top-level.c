@@ -33,6 +33,7 @@
 #include "business-urls.h"
 #include "combocell.h"
 #include "dialog-account.h"
+#include "dialog-assoc.h"
 #include "dialog-commodity.h"
 #include "dialog-invoice.h"
 #include "dialog-preferences.h"
@@ -70,7 +71,6 @@
 #include "gnucash-color.h"
 #include "gnucash-sheet.h"
 #include "gnucash-style.h"
-#include "guile-util.h"
 #include "search-core-type.h"
 #include "search-owner.h"
 #include "top-level.h"
@@ -166,6 +166,16 @@ gnc_html_register_url_cb (const char *location, const char *label,
         }
     }
 
+    else if (strncmp ("trans-association-guid=", location, strlen ("trans-association-guid=")) == 0)
+    {
+        if (!validate_type("trans-association-guid=", location, GNC_ID_TRANS, result, &guid, &entity))
+            return FALSE;
+
+        trans = (Transaction *) entity;
+        gnc_assoc_open_uri (gnc_ui_get_gtk_window (GTK_WIDGET(result->parent)), xaccTransGetAssociation (trans));
+        return TRUE;
+    }
+
     else if (strncmp ("split-guid=", location, strlen ("split-guid=")) == 0)
     {
         if (!validate_type("split-guid=", location, GNC_ID_SPLIT, result, &guid, &entity))
@@ -174,6 +184,7 @@ gnc_html_register_url_cb (const char *location, const char *label,
         split = (Split *) entity;
         account = xaccSplitGetAccount(split);
     }
+
     else
     {
         result->error_message =
@@ -185,10 +196,14 @@ gnc_html_register_url_cb (const char *location, const char *label,
     gnc_main_window_open_page (GNC_MAIN_WINDOW (result->parent), page);
     if (split)
     {
-        gsr = gnc_plugin_page_register_get_gsr(page);
-        gnc_split_reg_jump_to_split( gsr, split );
-    }
+        gsr = gnc_plugin_page_register_get_gsr (page);
 
+        /* Test for visibility of split */ 
+        if (gnc_split_reg_clear_filter_for_split (gsr, split))
+            gnc_plugin_page_register_clear_current_filter (page);
+
+        gnc_split_reg_jump_to_split (gsr, split);
+    }
     return TRUE;
 }
 
@@ -344,6 +359,11 @@ gnc_save_all_state (gpointer session, gpointer unused)
 
     /* Store the book's GncGUID in the top level group */
     book = qof_session_get_book(session);
+    if (!book)
+    {
+        PERR("Session has no book!");
+        return;
+    }
     guid = qof_entity_get_guid(QOF_INSTANCE(book));
     guid_to_string_buff(guid, guid_string);
     g_key_file_set_string(keyfile, STATE_FILE_TOP, STATE_FILE_BOOK_GUID,
@@ -411,15 +431,15 @@ gnc_main_gui_init (void)
     gnc_hook_run(HOOK_UI_STARTUP, NULL);
 
     gnc_hook_add_dangler(HOOK_BOOK_OPENED,
-                         gnc_restore_all_state, NULL);
+                         gnc_restore_all_state, NULL, NULL);
     gnc_hook_add_dangler(HOOK_BOOK_CLOSED,
-                         gnc_save_all_state, NULL);
+                         gnc_save_all_state, NULL, NULL);
     gnc_hook_add_dangler(HOOK_BOOK_CLOSED,
-                         (GFunc)gnc_reports_flush_global, NULL);
+                         (GFunc)gnc_reports_flush_global, NULL, NULL);
     gnc_hook_add_dangler(HOOK_BOOK_OPENED,
-                         (GFunc)gnc_invoice_remind_bills_due_cb, NULL);
+                         (GFunc)gnc_invoice_remind_bills_due_cb, NULL, NULL);
     gnc_hook_add_dangler(HOOK_BOOK_OPENED,
-                         (GFunc)gnc_invoice_remind_invoices_due_cb, NULL);
+                         (GFunc)gnc_invoice_remind_invoices_due_cb, NULL, NULL);
 
     gnc_ui_sx_initialize();
 

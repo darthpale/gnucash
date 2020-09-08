@@ -55,15 +55,14 @@
 #include "gnc-ui.h"
 #include "gnc-ui-balances.h"
 #include "gnc-window.h"
-#include "guile-util.h"
 #include "reconcile-view.h"
 #include "window-reconcile.h"
+#include "gnc-session.h"
 #ifdef MAC_INTEGRATION
 #include <gtkmacintegration/gtkosxapplication.h>
 #endif
 
 #define WINDOW_RECONCILE_CM_CLASS "window-reconcile"
-#define GNC_PREF_AUTO_INTEREST_TRANSFER "auto-interest-transfer"
 #define GNC_PREF_AUTO_CC_PAYMENT        "auto-cc-payment"
 #define GNC_PREF_ALWAYS_REC_TO_TODAY    "always-reconcile-to-today"
 
@@ -81,6 +80,7 @@ struct _RecnWindow
 
     GtkUIManager *ui_merge;
     GtkActionGroup *action_group;
+    GncPluginPage *page;
 
     GtkWidget *starting;         /* The starting balance                 */
     GtkWidget *ending;           /* The ending balance                   */
@@ -125,24 +125,6 @@ typedef struct _startRecnWindowData
 
     time64         date;            /* the interest xfer reconcile date        */
 } startRecnWindowData;
-
-
-/* Note: make sure to update the help text for this in prefs.scm if these
- * change!  These macros define the account types for which an auto interest
- * xfer dialog could pop up, if the user's preferences allow it.
- */
-#define account_type_has_auto_interest_charge(type)  (((type) == ACCT_TYPE_CREDIT) || \
-                                                      ((type) == ACCT_TYPE_LIABILITY) ||\
-                              ((type) == ACCT_TYPE_PAYABLE))
-
-#define account_type_has_auto_interest_payment(type) (((type) == ACCT_TYPE_BANK)  || \
-                                                      ((type) == ACCT_TYPE_ASSET) || \
-                                                      ((type) == ACCT_TYPE_MUTUAL) || \
-                              ((type) == ACCT_TYPE_RECEIVABLE))
-
-#define account_type_has_auto_interest_xfer(type) \
-  (  account_type_has_auto_interest_charge(type) || \
-    account_type_has_auto_interest_payment(type) )
 
 /** PROTOTYPES ******************************************************/
 static gnc_numeric recnRecalculateBalance (RecnWindow *recnData);
@@ -370,17 +352,15 @@ gnc_start_recn_date_changed (GtkWidget *widget, startRecnWindowData *data)
 
     if (days_after_today > 0)
     {
-        /* Translators: This is a ngettext(3) message, %d is the
-           number of days in the future */
         gchar *str = g_strdup_printf
+            /* Translators: %d is the number of days in the future */
             (ngettext ("Statement Date is %d day after today.",
                        "Statement Date is %d days after today.",
                        days_after_today),
              days_after_today);
 
-        /* Translators: This is a ngettext(3) message, %d is the
-           number of days in the future */
         gchar *tip_start = g_strdup_printf
+            /* Translators: %d is the number of days in the future */
             (ngettext ("The statement date you have chosen is %d day in the future.",
                        "The statement date you have chosen is %d days in the future.",
                        days_after_today),
@@ -425,21 +405,6 @@ gnc_start_recn_children_changed (GtkWidget *widget, startRecnWindowData *data)
 }
 
 
-/* For a given account, determine if an auto interest xfer dialog should be
- * shown, based on both the per-account flag as well as the global reconcile
- * option.  The global option is the default that is used if there is no
- * per-account option.
- */
-static gboolean
-gnc_recn_interest_xfer_get_auto_interest_xfer_allowed( Account *account )
-{
-    gboolean auto_xfer;
-
-    auto_xfer = gnc_prefs_get_bool(GNC_PREFS_GROUP_RECONCILE, GNC_PREF_AUTO_INTEREST_TRANSFER);
-    return xaccAccountGetAutoInterestXfer( account, auto_xfer );
-}
-
-
 /********************************************************************\
  * recnInterestXferWindow                                           *
  *   opens up a window to prompt the user to enter an interest      *
@@ -470,27 +435,6 @@ gnc_recn_make_interest_window_name(Account *account, char *text)
     g_free(fullname);
 
     return title;
-}
-
-
-/* user clicked button in the interest xfer dialog entitled
- * "No Auto Interest Payments for this Account".
- */
-static void
-gnc_recn_interest_xfer_no_auto_clicked_cb(GtkButton *button,
-        startRecnWindowData *data)
-{
-    /* Indicate that the user doesn't want
-     * an auto interest xfer for this account.
-     */
-    xaccAccountSetAutoInterestXfer( data->account, FALSE );
-
-    /* shut down the interest xfer dialog */
-    gnc_xfer_dialog_close( data->xferData );
-
-    /* make the button clickable again */
-    if ( data->xfer_button )
-        gtk_widget_set_sensitive(GTK_WIDGET(data->xfer_button), TRUE);
 }
 
 
@@ -562,15 +506,6 @@ recnInterestXferWindow( startRecnWindowData *data)
         gnc_xfer_dialog_quickfill_to_account( data->xferData, FALSE );
     }
 
-
-    /* add a button to disable auto interest payments for this account */
-    gnc_xfer_dialog_add_user_specified_button( data->xferData,
-            ( account_type_has_auto_interest_payment( data->account_type ) ?
-              _("No Auto Interest Payments for this Account")
-              : _("No Auto Interest Charges for this Account") ),
-            G_CALLBACK(gnc_recn_interest_xfer_no_auto_clicked_cb),
-            (gpointer) data );
-
     /* no currency frame */
     gnc_xfer_dialog_toggle_currency_table( data->xferData, FALSE );
 
@@ -628,10 +563,6 @@ gnc_reconcile_interest_xfer_run(startRecnWindowData *data)
 void
 gnc_start_recn_interest_clicked_cb(GtkButton *button, startRecnWindowData *data)
 {
-    /* indicate in account that user wants
-     * an auto interest xfer for this account */
-    xaccAccountSetAutoInterestXfer( data->account, TRUE );
-
     /* make the button unclickable since we're popping up the window */
     if ( data->xfer_button )
         gtk_widget_set_sensitive(GTK_WIDGET(data->xfer_button), FALSE);
@@ -659,7 +590,7 @@ gnc_save_reconcile_interval(Account *account, time64 statement_date)
 
     /*
      * See if we need to remember days(weeks) or months.  The only trick
-     * value is 28 days which could be wither 4 weeks or 1 month.
+     * value is 28 days which could be either 4 weeks or 1 month.
      */
     if (days == 28)
     {
@@ -731,8 +662,7 @@ startRecnWindow(GtkWidget *parent, Account *account,
     data.date = *statement_date;
 
     /* whether to have an automatic interest xfer dialog or not */
-    auto_interest_xfer_option =
-        gnc_recn_interest_xfer_get_auto_interest_xfer_allowed( account );
+    auto_interest_xfer_option = xaccAccountGetAutoInterest (account);
 
     data.include_children = !has_account_different_commodities(account) &&
         xaccAccountGetReconcileChildrenStatus(account);
@@ -754,8 +684,8 @@ startRecnWindow(GtkWidget *parent, Account *account,
 
     dialog = GTK_WIDGET(gtk_builder_get_object (builder, "reconcile_start_dialog"));
 
-    // Set the style context for this dialog so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(dialog), "GncReconcileDialog");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(dialog), "gnc-id-reconcile-start");
 
     title = gnc_recn_make_window_name (account);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
@@ -954,31 +884,12 @@ gnc_reconcile_window_row_cb(GNCReconcileView *view, gpointer item,
 static void
 do_popup_menu(RecnWindow *recnData, GdkEventButton *event)
 {
-    GtkWidget *menu;
-    int button, event_time;
+    GtkWidget *menu = gtk_ui_manager_get_widget (recnData->ui_merge, "/MainPopup");
 
-    menu = gtk_ui_manager_get_widget(recnData->ui_merge, "/MainPopup");
     if (!menu)
-    {
         return;
-    }
 
-#if GTK_CHECK_VERSION(3,22,0)
     gtk_menu_popup_at_pointer (GTK_MENU(menu), (GdkEvent *) event);
-#else
-    if (event)
-    {
-        button = event->button;
-        event_time = event->time;
-    }
-    else
-    {
-        button = 0;
-        event_time = gtk_get_current_event_time ();
-    }
-
-    gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL, button, event_time);
-#endif
 }
 
 
@@ -1040,7 +951,6 @@ static GNCSplitReg *
 gnc_reconcile_window_open_register(RecnWindow *recnData)
 {
     Account *account = recn_get_account (recnData);
-    GncPluginPage *page;
     GNCSplitReg *gsr;
     gboolean include_children;
 
@@ -1048,10 +958,10 @@ gnc_reconcile_window_open_register(RecnWindow *recnData)
         return(NULL);
 
     include_children = xaccAccountGetReconcileChildrenStatus (account);
-    page = gnc_plugin_page_register_new (account, include_children);
-    gnc_main_window_open_page (NULL, page);
-    gsr = gnc_plugin_page_register_get_gsr(page);
-    gnc_split_reg_raise(gsr);
+    recnData->page = gnc_plugin_page_register_new (account, include_children);
+    gnc_main_window_open_page (NULL, recnData->page);
+    gsr = gnc_plugin_page_register_get_gsr (recnData->page);
+    gnc_split_reg_raise (gsr);
     return gsr;
 }
 
@@ -1070,6 +980,11 @@ gnc_reconcile_window_double_click_cb(GNCReconcileView *view, Split *split,
     gsr = gnc_reconcile_window_open_register(recnData);
     if (gsr == NULL)
         return;
+
+    /* Test for visibility of split */
+    if (gnc_split_reg_clear_filter_for_split (gsr, split))
+        gnc_plugin_page_register_clear_current_filter (GNC_PLUGIN_PAGE(recnData->page));
+
     gnc_split_reg_jump_to_split( gsr, split );
 }
 
@@ -1130,30 +1045,13 @@ gnc_reconcile_key_press_cb (GtkWidget *widget, GdkEventKey *event,
 static void
 gnc_reconcile_window_set_titles(RecnWindow *recnData)
 {
-    gboolean formal;
-    gchar *title;
+    const gchar *title;
 
-    formal = gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL, GNC_PREF_ACCOUNTING_LABELS);
-
-    if (formal)
-        title = _("Debits");
-    else
-        title = gnc_get_debit_string(ACCT_TYPE_NONE);
-
+    title = gnc_account_get_debit_string(ACCT_TYPE_NONE);
     gtk_frame_set_label(GTK_FRAME(recnData->debit_frame), title);
 
-    if (!formal)
-        g_free(title);
-
-    if (formal)
-        title = _("Credits");
-    else
-        title = gnc_get_credit_string(ACCT_TYPE_NONE);
-
+    title = gnc_account_get_credit_string(ACCT_TYPE_NONE);
     gtk_frame_set_label(GTK_FRAME(recnData->credit_frame), title);
-
-    if (!formal)
-        g_free(title);
 }
 
 
@@ -1228,12 +1126,7 @@ gnc_reconcile_window_create_view_box(Account *account,
     label = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
     *total_save = label;
-
-#if GTK_CHECK_VERSION(3,12,0)
     gtk_widget_set_margin_end (GTK_WIDGET(label), 10 + nat_sb.width);
-#else
-    gtk_widget_set_margin_right (GTK_WIDGET(label), 10 + nat_sb.width);
-#endif
 
     return vbox;
 }
@@ -1342,12 +1235,93 @@ gnc_ui_reconcile_window_unrec_cb(GtkButton *button, gpointer data)
 }
 
 
+/** Get the debit or credit view that has at least 1 split selected.
+ *   gnc_reconcile_window_focus_cb() ensures only 1 view
+ *   has a selection.
+ * @param window The reconcile window.
+ */
+static GNCReconcileView *
+gnc_reconcile_window_get_selection_view (RecnWindow *recnData)
+{
+    if (gnc_reconcile_view_num_selected (GNC_RECONCILE_VIEW (recnData->debit)) > 0)
+        return GNC_RECONCILE_VIEW (recnData->debit);
+
+    if (gnc_reconcile_view_num_selected (GNC_RECONCILE_VIEW (recnData->credit)) > 0)
+        return GNC_RECONCILE_VIEW (recnData->credit);
+
+    return NULL;
+}
+
+
+/** Select the next split in the debit or credit view so that after the Delete
+ *   button is actioned, the working position in the list is still in view.
+ *  Unless this is done, the list will be scrolled to the top.
+ *  The new split selected must have a different parent transaction as all splits
+ *   for the transaction will be deleted.
+ */
+static void
+gnc_reconcile_window_delete_set_next_selection (RecnWindow *recnData, Split *split)
+{
+    GNCReconcileView *view = gnc_reconcile_window_get_selection_view (recnData);
+    GtkTreeModel *model = gtk_tree_view_get_model (GTK_TREE_VIEW (view));
+    Split *this_split = NULL;
+    GtkTreeIter iter;
+    GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (view));
+    GList *path_list, *node;
+    GtkTreePath *path, *save_del_path;
+    Transaction* trans = xaccSplitGetParent (split); // parent transaction of the split to delete
+
+    if (!view)
+        return; // no selected split
+
+    path_list = gtk_tree_selection_get_selected_rows (selection, &model);
+    // get path of the first split selected - there should be only 1 selected
+    node = g_list_first (path_list);
+    if (!node)
+        return;
+    path = node->data;
+    save_del_path = gtk_tree_path_copy (path);
+
+    gtk_tree_path_next (path);
+    if (gtk_tree_model_get_iter (model, &iter, path))
+    {
+        do
+        {
+            gtk_tree_model_get (model, &iter, REC_POINTER, &this_split, -1);
+        }
+        while (xaccSplitGetParent (this_split) == trans && gtk_tree_model_iter_next (model, &iter));
+    }
+
+    if ((!this_split) || xaccSplitGetParent (this_split) == trans)
+    {
+        // There aren't any splits for a different transaction after the split to be deleted,
+        //  so find the previous split having a different parent transaction
+        path = save_del_path; // split to be deleted
+        if (gtk_tree_path_prev (path) && gtk_tree_model_get_iter (model, &iter, path))
+        {
+            do
+            {
+                gtk_tree_model_get (model, &iter, REC_POINTER, &this_split, -1);
+            }
+            while (xaccSplitGetParent (this_split) == trans && gtk_tree_model_iter_previous (model, &iter));
+        }
+    }
+
+    gtk_tree_path_free (save_del_path);
+    g_list_free_full (path_list, (GDestroyNotify) gtk_tree_path_free);
+    if ((!this_split) || xaccSplitGetParent (this_split) == trans)
+        return;
+
+    gtk_tree_selection_select_iter (selection, &iter);
+}
+
+
 static void
 gnc_ui_reconcile_window_delete_cb(GtkButton *button, gpointer data)
 {
     RecnWindow *recnData = data;
     Transaction *trans;
-    Split *split;
+    Split *split, *next_split;
 
     split = gnc_reconcile_window_get_current_split(recnData);
     /* This should never be true, but be paranoid */
@@ -1364,6 +1338,9 @@ gnc_ui_reconcile_window_delete_cb(GtkButton *button, gpointer data)
         if (!result)
             return;
     }
+
+    /* select the split that should be visible after the deletion */
+    gnc_reconcile_window_delete_set_next_selection(recnData, split);
 
     gnc_suspend_gui_refresh ();
 
@@ -1389,6 +1366,11 @@ gnc_ui_reconcile_window_edit_cb(GtkButton *button, gpointer data)
     gsr = gnc_reconcile_window_open_register(recnData);
     if (gsr == NULL)
         return;
+
+    /* Test for visibility of split */
+    if (gnc_split_reg_clear_filter_for_split (gsr, split))
+        gnc_plugin_page_register_clear_current_filter (GNC_PLUGIN_PAGE(recnData->page));
+
     gnc_split_reg_jump_to_split_amount( gsr, split );
 }
 
@@ -1565,6 +1547,12 @@ recn_set_watches_one_account (gpointer data, gpointer user_data)
     RecnWindow *recnData = (RecnWindow *)user_data;
     GList *node;
 
+    /* add a watch on the account */
+    gnc_gui_component_watch_entity (recnData->component_id,
+                                    xaccAccountGetGUID (account),
+                                    QOF_EVENT_MODIFY | QOF_EVENT_DESTROY);
+
+    /* add a watch on each unreconciled or cleared split for the account */
     for (node = xaccAccountGetSplitList (account); node; node = node->next)
     {
         Split *split = node->data;
@@ -1600,10 +1588,6 @@ recn_set_watches (RecnWindow *recnData)
     GList *accounts = NULL;
 
     gnc_gui_component_clear_watches (recnData->component_id);
-
-    gnc_gui_component_watch_entity (recnData->component_id,
-                                    &recnData->account,
-                                    QOF_EVENT_MODIFY | QOF_EVENT_DESTROY);
 
     account = recn_get_account (recnData);
 
@@ -1757,6 +1741,7 @@ recnWindowWithBalance (GtkWidget *parent, Account *account, gnc_numeric new_endi
         gnc_register_gui_component (WINDOW_RECONCILE_CM_CLASS,
                                     refresh_handler, close_handler,
                                     recnData);
+    gnc_gui_component_set_session (recnData->component_id, gnc_get_current_session());
 
     recn_set_watches (recnData);
 
@@ -1772,6 +1757,9 @@ recnWindowWithBalance (GtkWidget *parent, Account *account, gnc_numeric new_endi
     vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_set_homogeneous (GTK_BOX (vbox), FALSE);
     gtk_container_add(GTK_CONTAINER(recnData->window), vbox);
+
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(recnData->window), "gnc-id-reconcile");
 
     dock = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_set_homogeneous (GTK_BOX (dock), FALSE);
@@ -1896,9 +1884,15 @@ use Find Transactions to find them, unreconcile, and re-reconcile."));
                      (account, RECLIST_DEBIT, recnData,
                       &recnData->debit, &recnData->total_debit);
 
+        // Add a style context for this widget so it can be easily manipulated with css
+        gnc_widget_style_context_add_class (GTK_WIDGET(debits_box), "gnc-class-debits");
+
         credits_box = gnc_reconcile_window_create_view_box
                       (account, RECLIST_CREDIT, recnData,
                        &recnData->credit, &recnData->total_credit);
+
+        // Add a style context for this widget so it can be easily manipulated with css
+        gnc_widget_style_context_add_class (GTK_WIDGET(credits_box), "gnc-class-credits");
 
         GNC_RECONCILE_VIEW(recnData->debit)->sibling = GNC_RECONCILE_VIEW(recnData->credit);
         GNC_RECONCILE_VIEW(recnData->credit)->sibling = GNC_RECONCILE_VIEW(recnData->debit);
@@ -1931,6 +1925,9 @@ use Find Transactions to find them, unreconcile, and re-reconcile."));
             /* frame to hold totals */
             frame = gtk_frame_new(NULL);
             gtk_box_pack_end(GTK_BOX(hbox), frame, FALSE, FALSE, 0);
+
+            // Set the name for this widget so it can be easily manipulated with css
+            gtk_widget_set_name (GTK_WIDGET(frame), "gnc-id-reconcile-totals");
 
             /* hbox to hold title/value vboxes */
             totals_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
@@ -2036,20 +2033,15 @@ use Find Transactions to find them, unreconcile, and re-reconcile."));
         gint recn_widthc = gnc_reconcile_view_get_column_width (GNC_RECONCILE_VIEW(recnData->credit), REC_RECN);
         gint recn_widthd = gnc_reconcile_view_get_column_width (GNC_RECONCILE_VIEW(recnData->debit), REC_RECN);
 
-#if GTK_CHECK_VERSION(3,12,0)
         gtk_widget_set_margin_end (GTK_WIDGET(recnData->total_credit), 10 + recn_widthc);
         gtk_widget_set_margin_end (GTK_WIDGET(recnData->total_debit), 10 + recn_widthd);
-#else
-        gtk_widget_set_margin_right (GTK_WIDGET(recnData->total_credit), 10 + recn_widthc);
-        gtk_widget_set_margin_right (GTK_WIDGET(recnData->total_debit), 10 + recn_widthd);
-#endif
     }
     return recnData;
 }
 
 
 /********************************************************************\
- * gnc_ui_reconile_window_raise                                     *
+ * gnc_ui_reconcile_window_raise                                     *
  *   shows and raises an account editing window                     *
  *                                                                  *
  * Args:   editAccData - the edit window structure                  *
@@ -2065,6 +2057,15 @@ gnc_ui_reconcile_window_raise(RecnWindow * recnData)
 
     gtk_window_present(GTK_WINDOW(recnData->window));
 }
+
+GtkWindow *
+gnc_ui_reconcile_window_get_window (RecnWindow * recnData)
+{
+    if (recnData == NULL || recnData->window == NULL)
+        return NULL;
+    return GTK_WINDOW(recnData->window);
+}
+
 
 
 /********************************************************************\

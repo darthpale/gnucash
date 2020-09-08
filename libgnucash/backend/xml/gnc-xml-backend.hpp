@@ -35,8 +35,8 @@ public:
     GncXmlBackend(const GncXmlBackend&&) = delete;
     GncXmlBackend operator=(const GncXmlBackend&&) = delete;
     ~GncXmlBackend() = default;
-    void session_begin(QofSession* session, const char* book_id,
-                       bool ignore_lock, bool create, bool force) override;
+    void session_begin(QofSession* session, const char* new_uri,
+                       SessionOpenMode mode) override;
     void session_end() override;
     void load(QofBook* book, QofBackendLoadType loadType) override;
     /* The XML backend isn't able to do anything with individual instances. */

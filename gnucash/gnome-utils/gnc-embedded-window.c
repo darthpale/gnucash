@@ -231,8 +231,8 @@ gnc_embedded_window_init (GncEmbeddedWindow *window, void *data)
 
     gtk_orientable_set_orientation (GTK_ORIENTABLE(window), GTK_ORIENTATION_VERTICAL);
 
-    // Set the style context for this widget so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(window), "GncEmbeddedWindow");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(window), "gnc-id-embedded-window");
 
     gnc_embedded_window_setup_window (window);
 
@@ -337,6 +337,10 @@ gnc_embedded_window_setup_window (GncEmbeddedWindow *window)
     window->ui_merge = gtk_ui_manager_new ();
     g_signal_connect (G_OBJECT (window->ui_merge), "add_widget",
                       G_CALLBACK (gnc_embedded_window_add_widget), window);
+
+    /* Use the "connect-proxy" signal for tooltip display in the status bar */
+    g_signal_connect (G_OBJECT (window->ui_merge), "connect-proxy",
+                      G_CALLBACK (gnc_window_connect_proxy), priv->statusbar);
 
     priv->action_group = NULL;
     LEAVE(" ");

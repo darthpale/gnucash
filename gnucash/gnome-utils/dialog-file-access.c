@@ -161,6 +161,7 @@ gnc_ui_file_access_response_cb(GtkDialog *dialog, gint response, GtkDialog *unus
         break;
 
     case GTK_RESPONSE_CANCEL:
+    case GTK_RESPONSE_DELETE_EVENT:
         break;
 
     default:
@@ -282,8 +283,8 @@ gnc_ui_file_access (GtkWindow *parent, int type)
     gtk_window_set_transient_for (GTK_WINDOW (faw->dialog), parent);
     g_object_set_data_full( G_OBJECT(faw->dialog), "FileAccessWindow", faw, g_free );
 
-    // Set the style context for this dialog so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(faw->dialog), "GncFileAccessDialog");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(faw->dialog), "gnc-id-file-access");
 
     faw->frame_file = GTK_WIDGET(gtk_builder_get_object (builder, "frame_file" ));
     faw->frame_database = GTK_WIDGET(gtk_builder_get_object (builder, "frame_database" ));
@@ -343,6 +344,7 @@ gnc_ui_file_access (GtkWindow *parent, int type)
             faw->starting_dir = g_path_get_dirname( filepath );
             g_free ( filepath );
         }
+        g_free (last);
     }
     if (!faw->starting_dir)
         faw->starting_dir = gnc_get_default_directory(settings_section);

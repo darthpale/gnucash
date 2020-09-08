@@ -21,8 +21,7 @@
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 
 
-(use-modules (gnucash core-utils)
-             (gnucash gettext))
+(use-modules (gnucash core-utils))
 
 ;; get stuff from localtime date vector
 (define (gnc:date-get-year datevec)
@@ -87,7 +86,7 @@
   (let* ((beginweekt64 (* (gnc:time64-get-week (gnc-mktime datevec)) 7 86400))
          (begin-string (qof-print-date (+ beginweekt64 (* 3 86400))))
          (end-string (qof-print-date (+ beginweekt64 (* 9 86400)))))
-    (format #f (_ "~a to ~a") begin-string end-string)))
+    (format #f (G_ "~a to ~a") begin-string end-string)))
 
 ;; is leap year?
 (define (gnc:leap-year? year)
@@ -111,8 +110,8 @@
 (define (gnc:date-to-year-fraction caltime)
   (let ((lt (gnc-localtime caltime)))
     (+ (- (gnc:date-get-year lt) 1970)
-       (/ (- (gnc:date-get-year-day lt) 1.0)
-	  (* 1.0 (gnc:days-in-year (gnc:date-get-year lt)))))))
+       (/ (- (gnc:date-get-year-day lt) 1)
+          (gnc:days-in-year (gnc:date-get-year lt))))))
 
 ;; return the number of years (in floating point format) between two dates.
 (define (gnc:date-year-delta caltime1 caltime2)
@@ -147,9 +146,9 @@
 ;; convert a date in seconds since 1970 into # of months since 1970
 (define (gnc:date-to-month-fraction caltime)
   (let ((lt (gnc-localtime caltime)))
-    (+ (* 12 (- (gnc:date-get-year lt) 1970.0))
+    (+ (* 12 (- (gnc:date-get-year lt) 1970))
        (gnc:date-get-month lt) -1
-       (/ (- (gnc:date-get-month-day lt) 1.0)
+       (/ (- (gnc:date-get-month-day lt) 1)
           (gnc:days-in-month
 	   (gnc:date-get-month lt)
 	   (gnc:date-get-year lt))))))
@@ -205,17 +204,6 @@
 ;; Add or subtract time from a date
 (define (decdate adate delta) (moddate - adate delta ))
 (define (incdate adate delta) (moddate + adate delta ))
-
-;; date-granularity comparison functions.
-
-(define (gnc:time64-le-date t1 t2)
-  (issue-deprecation-warning "gnc:time64-le-date is unused")
-  (<= (time64CanonicalDayTime t1)
-      (time64CanonicalDayTime t2)))
-
-(define (gnc:time64-ge-date t1 t2)
-  (issue-deprecation-warning "gnc:time64-ge-date is unused")
-  (gnc:time64-le-date t2 t1))
 
 ;; returns #t if adding 1 to mday causes a month change.
 (define (end-month? date)
@@ -425,42 +413,22 @@
 (define (gnc:reldate-get-desc x) (vector-ref x 2))
 (define (gnc:reldate-get-fn x) (vector-ref x 3))
 
-(define (gnc:make-reldate-hash hash reldate-list)
-  (issue-deprecation-warning "gnc:make-reldate-hash is deprecated.")
-  (map (lambda (reldate) (hash-set! 
-			  hash 
-			  (gnc:reldate-get-symbol reldate)
-			  reldate))
-       reldate-list))
-
-;; the following two variables will be inlined and can be deprecated
-(define gnc:reldate-string-db (gnc:make-string-database)) ;deprecate
-(define gnc:relative-date-values '())                     ;deprecate
-
 ;; the globally available hash of reldates (hash-key = reldate
-;; symbols, hash-value = a vector, reldate data). aim to deprecate it
-;; being exported.
-(define gnc:relative-date-hash (make-hash-table))
+;; symbols, hash-value = a vector, reldate data).
+(define gnc:relative-date-hash #f)
 
 (define (gnc:get-absolute-from-relative-date date-symbol)
   ;; used in options.scm
   (let ((rel-date-data (hash-ref gnc:relative-date-hash date-symbol)))
     (if rel-date-data
         ((gnc:reldate-get-fn rel-date-data))
-        (let* ((msg (_ "Tried to look up an undefined date symbol \
+        (let* ((msg (G_ "Tried to look up an undefined date symbol \
 '~a'. This report was probably saved by a later version of GnuCash. \
 Defaulting to today."))
                (conmsg (format #f msg date-symbol))
-               (uimsg (format #f (_ msg) date-symbol)))
+               (uimsg (format #f (G_ msg) date-symbol)))
           (gnc:gui-warn conmsg uimsg)
           (current-time)))))
-
-(define (gnc:get-relative-date-strings date-symbol)
-  (issue-deprecation-warning "gnc:get-relative-date-strings is unused.")
-  (let ((rel-date-info (hash-ref gnc:relative-date-hash date-symbol)))
-    
-    (cons (gnc:reldate-get-string rel-date-info)
-	  (gnc:relate-get-desc rel-date-info))))
 
 (define (gnc:get-relative-date-string date-symbol)
   ;; used in options.scm
@@ -824,10 +792,9 @@ Defaulting to today."))
 ;;one-month-ago three-months-ago six-months-ago one-year-ago
 ;;start-cur-fin-year start-prev-fin-year end-prev-fin-year
 
-(define (gnc:reldate-initialize)
-  (define gnc:reldate-string-db (gnc:make-string-database))
-  (define gnc:relative-date-values #f)
-
+(define gnc:reldate-string-db (gnc:make-string-database))
+(define gnc:relative-date-values #f)
+(unless gnc:relative-date-hash
   (gnc:reldate-string-db 
    'store 'start-cal-year-string 
    (N_ "Start of this year"))
@@ -1152,6 +1119,7 @@ Defaulting to today."))
 		 gnc:get-one-year-ahead)))
 
   ;; initialise gnc:relative-date-hash
+  (set! gnc:relative-date-hash (make-hash-table))
   (for-each
    (lambda (reldate)
      (hash-set! gnc:relative-date-hash (gnc:reldate-get-symbol reldate) reldate))

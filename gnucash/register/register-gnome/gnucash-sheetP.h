@@ -88,7 +88,6 @@ struct _GnucashSheet
 
     guint insert_signal;
     guint delete_signal;
-    guint changed_signal;
 
     GtkAdjustment *hadj, *vadj;
     GtkWidget *hscrollbar, *vscrollbar;
@@ -96,25 +95,13 @@ struct _GnucashSheet
     GFunc moved_cb;
     gpointer moved_cb_data;
 
-    /* IMContext */
-    GtkIMContext *im_context;
-    gint preedit_length; /** num of bytes */
-    gint preedit_char_length; /** num of chars in UTF-8 */
-    gint preedit_start_position; /** save preedit start position   *
-                                      * combined with selection start */
-    gint preedit_cursor_position; /** save preedit cursor position */
-    gint preedit_selection_length;
-    PangoAttrList *preedit_attrs;
-    gboolean need_im_reset;
-    gboolean direct_update_cell;
-    guint commit_signal;
-    guint preedit_changed_signal;
-    guint retrieve_surrounding_signal;
-    guint delete_surrounding_signal;
+    GFunc open_assoc_cb;
+    gpointer open_assoc_cb_data;
 
     guint shift_state;
     guint keyval_state;
-    int start_sel, end_sel;
+    gboolean direct_update_cell; /** Indicates that this cell has special operation keys. */
+    int pos, bound; /** Corresponds to GtkEditable's current_pos and selection_bound */
 
 };
 
@@ -138,8 +125,6 @@ gboolean   gnucash_sheet_find_loc_by_pixel (GnucashSheet *sheet, gint x, gint y,
 gboolean gnucash_sheet_draw_internal (GnucashSheet *sheet, cairo_t *cr,
                                       GtkAllocation *alloc);
 void gnucash_sheet_draw_cursor (GnucashCursor *cursor, cairo_t *cr);
-
-void gnc_widget_set_css_name (GtkWidget *widget, const char *name);
 
 /** @} */
 #endif

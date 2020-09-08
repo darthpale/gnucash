@@ -75,8 +75,6 @@ void gnucash_sheet_redraw_help (GnucashSheet *sheet);
 void gnucash_sheet_redraw_block (GnucashSheet *sheet,
                                  VirtualCellLocation vcell_loc);
 
-void gnucash_sheet_cursor_set (GnucashSheet *gsheet, VirtualLocation virt_loc);
-
 const char * gnucash_sheet_modify_current_cell(GnucashSheet *sheet,
         const gchar *new_text);
 
@@ -102,7 +100,7 @@ void gnucash_sheet_update_adjustments (GnucashSheet *sheet);
 void gnucash_sheet_set_window (GnucashSheet *sheet, GtkWidget *window);
 
 void gnucash_get_style_classes (GnucashSheet *sheet, GtkStyleContext *stylectxt,
-                                RegisterColor field_type);
+                                RegisterColor field_type, gboolean use_neg_class);
 
 void gnucash_sheet_set_text_bounds (GnucashSheet *sheet, GdkRectangle *rect,
                                     gint x, gint y, gint width, gint height);

@@ -83,9 +83,6 @@ remove_locks (const char* filename)
 static void
 test_load_file (const char* filename)
 {
-    QofSession* session;
-    QofBook* book;
-    Account* root;
     gboolean ignore_lock;
     const char* logdomain = "backend.xml";
     GLogLevelFlags loglevel = static_cast<decltype (loglevel)>
@@ -94,18 +91,19 @@ test_load_file (const char* filename)
     g_log_set_handler (logdomain, loglevel,
                        (GLogFunc)test_checked_handler, &check);
 
-    session = qof_session_new ();
+    auto session = qof_session_new (nullptr);
 
     remove_locks (filename);
 
     ignore_lock = (g_strcmp0 (g_getenv ("SRCDIR"), ".") != 0);
     /*    gnc_prefs_set_file_save_compressed(FALSE); */
-    qof_session_begin (session, filename, ignore_lock, FALSE, TRUE);
+    qof_session_begin (session, filename,
+                       ignore_lock ? SESSION_READ_ONLY : SESSION_NORMAL_OPEN);
 
     qof_session_load (session, NULL);
-    book = qof_session_get_book (session);
+    auto book = qof_session_get_book (session);
 
-    root = gnc_book_get_root_account (book);
+    auto root = gnc_book_get_root_account (book);
     do_test (gnc_account_get_book (root) == book,
              "book and root account don't match");
 

@@ -2,12 +2,12 @@ add_subdirectory(glossary)
 
 # Set of available languages:
 # * managed at the Translation Project (TP):
-set (TP_LINGUAS az ca cs da eu fa ja nl ro rw sk sr sv tr uk zh_CN)
-# * already marked as external at TP:
-set (GC_LINGUAS ar bg de el en_GB es fi fr gu he hi hu it kn ko lt lv mr nb ne pl pt pt_BR ru ta te ur vi zh_TW)
+set (TP_LINGUAS ca cs da eu fa ja ro rw sk sr sv tr uk zh_CN)
+# * already marked as external at TP or they have no language team:
+set (GC_LINGUAS ar as az bg brx de doi el en_GB es es_NI fi fr gu he hi hr hu it kn ko kok kok@latin ks lt lv mai mni mni@bengali mr nb ne nl pl pt pt_BR ru ta te ur vi zh_TW)
 # * New or unmarked: The release manager should announce them to TP 
 # and when listed there move in the respective group above.
-set (NEW_LINGUAS as brx doi es_NI hr kok kok@latin ks mai mni mni@bengali)
+set (NEW_LINGUAS "")
 
 set (ALL_LINGUAS ${TP_LINGUAS} ${GC_LINGUAS} ${NEW_LINGUAS})
 
@@ -75,7 +75,7 @@ function(make_gnucash_potfiles)
     ${CMAKE_SOURCE_DIR}/*.glade ${CMAKE_SOURCE_DIR}/*.desktop.in.in
     ${CMAKE_SOURCE_DIR}/*.gschema.xml.in ${CMAKE_SOURCE_DIR}/*.appdata.xml.in.in
     ${CMAKE_SOURCE_DIR}/*.keys.in ${CMAKE_SOURCE_DIR}/*.scm
-    ${CMAKE_SOURCE_DIR}/*/qofbookslots.h
+    ${CMAKE_SOURCE_DIR}/*.py ${CMAKE_SOURCE_DIR}/*/qofbookslots.h
     ${CMAKE_SOURCE_DIR}/*/gnc-commodity.h
   )
 
@@ -85,7 +85,7 @@ function(make_gnucash_potfiles)
   foreach (path ${FILES_IN})
     if (${path} MATCHES "^(bindings/|borrowed/|common/|doc/|libgnucash/|gnucash/)"
         AND
-        NOT ${path} MATCHES "gw-|test|experimental|python-bindings|swig-.*\\.c"
+        NOT ${path} MATCHES "gw-|mocks|test|experimental|python-bindings|swig-.*\\.c"
         # Skip POSIX style hidden files even if they have the proper extension
         # These are typically temporary files from editors like emacs
         AND

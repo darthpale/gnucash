@@ -1422,9 +1422,9 @@ gnc_ui_qif_import_close_cb (GtkAssistant *gtkassistant, gpointer user_data)
 SCM
 gnc_ui_qif_import_assistant_get_mappings (QIFImportWindow * w)
 {
-    return SCM_LIST3(w->acct_map_info,
-                     w->cat_map_info,
-                     w->memo_map_info);
+    return scm_list_3 (w->acct_map_info,
+                       w->cat_map_info,
+                       w->memo_map_info);
 }
 
 
@@ -3038,15 +3038,16 @@ gnc_ui_qif_import_convert_progress_start_cb (GtkButton * button,
     /* This step will fill 70% of the bar. */
     gnc_progress_dialog_push (wind->convert_progress, 0.7);
     retval = scm_apply (qif_to_gnc,
-                       SCM_LIST8(wind->imported_files,
-                                 wind->acct_map_info,
-                                 wind->cat_map_info,
-                                 wind->memo_map_info,
-                                 wind->security_hash,
-                                 scm_from_utf8_string (currname ? currname : ""),
-                                 wind->transaction_status,
-                                 progress),
-                       SCM_EOL);
+                        scm_list_n (wind->imported_files,
+                                    wind->acct_map_info,
+                                    wind->cat_map_info,
+                                    wind->memo_map_info,
+                                    wind->security_hash,
+                                    scm_from_utf8_string (currname ? currname : ""),
+                                    wind->transaction_status,
+                                    progress,
+                                    SCM_UNDEFINED),
+                        SCM_EOL);
     gnc_progress_dialog_pop (wind->convert_progress);
 
     if (retval == SCM_BOOL_T)
@@ -3403,9 +3404,9 @@ gnc_ui_qif_import_finish_cb (GtkAssistant *assistant,
 
     /* Save the user's mapping preferences. */
     scm_result = scm_apply (save_map_prefs,
-                            SCM_LIST5 (wind->acct_map_info, wind->cat_map_info,
-                                      wind->memo_map_info, wind->security_hash,
-                                      wind->security_prefs),
+                            scm_list_5 (wind->acct_map_info, wind->cat_map_info,
+                                        wind->memo_map_info, wind->security_hash,
+                                        wind->security_prefs),
                             SCM_EOL);
 
     if (scm_result == SCM_BOOL_F)
@@ -3616,8 +3617,9 @@ get_assistant_widgets (QIFImportWindow *wind, GtkBuilder *builder)
                                    GTK_TEXT_VIEW(wind->convert_log));
     wind->summary_text       = GTK_WIDGET(gtk_builder_get_object (builder, "summary_page"));
 
-    // Set the style context for this assistant so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(wind->window), "GncAssistQifImport");
+    // Set the name for this assistant so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(wind->window), "gnc-id-assistant-qif-import");
+    gnc_widget_style_context_add_class (GTK_WIDGET(wind->window), "gnc-class-imports");
 
     wind->new_transaction_view =
         GTK_WIDGET(gtk_builder_get_object (builder, "new_transaction_view"));

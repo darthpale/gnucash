@@ -91,13 +91,14 @@ setup (Fixture* fixture, gconstpointer pData)
 {
     gchar* url = (gchar*)pData;
     gnc_module_init_backend_dbi();
-    fixture->session = qof_session_new ();
+    auto book = qof_book_new();
+    fixture->session = qof_session_new (book);
     /* When running distcheck the source directory is read-only, which
      * prevents creating the lock file. Force the session to get
      * around that.
      */
-    qof_session_begin (fixture->session, DBI_TEST_XML_FILENAME, TRUE,
-                       FALSE, TRUE);
+    qof_session_begin (fixture->session, DBI_TEST_XML_FILENAME,
+                       SESSION_BREAK_LOCK);
     g_assert_cmpint (qof_session_get_error (fixture->session), == ,
                      ERR_BACKEND_NO_ERR);
     qof_session_load (fixture->session, NULL);
@@ -111,9 +112,9 @@ setup (Fixture* fixture, gconstpointer pData)
 static void
 setup_memory (Fixture* fixture, gconstpointer pData)
 {
-    QofSession* session = nullptr;
     gchar* url = (gchar*)pData;
-    QofBook* book;
+    auto book = qof_book_new();
+    auto session = qof_session_new (book);
     Account* root, *acct1, *acct2;
     Transaction* tx;
     Split* spl1, *spl2;
@@ -121,8 +122,6 @@ setup_memory (Fixture* fixture, gconstpointer pData)
     gnc_commodity* currency;
 
     gnc_module_init_backend_dbi();
-    session = qof_session_new ();
-    book = qof_session_get_book (session);
     root = gnc_book_get_root_account (book);
 
     table = gnc_commodity_table_get_table (book);
@@ -170,9 +169,9 @@ static void
 setup_business (Fixture* fixture, gconstpointer pData)
 {
     gnc_module_init_backend_dbi ();
-    QofSession* session = qof_session_new ();
+    auto book = qof_book_new ();
+    auto session = qof_session_new (book);
     gchar* url = (gchar*)pData;
-    QofBook* book = qof_session_get_book (session);
     Account* root = gnc_book_get_root_account (book);
     Account* acct1;
     Account* acct2;
@@ -382,9 +381,6 @@ test_dbi_store_and_reload (Fixture* fixture, gconstpointer pData)
 {
 
     const gchar* url = (const gchar*)pData;
-    QofSession* session_2;
-    QofSession* session_3;
-
     auto msg = "[GncDbiSqlConnection::unlock_database()] There was no lock entry in the Lock table";
     auto log_domain = nullptr;
     auto loglevel = static_cast<GLogLevelFlags> (G_LOG_LEVEL_WARNING |
@@ -396,8 +392,9 @@ test_dbi_store_and_reload (Fixture* fixture, gconstpointer pData)
         url = fixture->filename;
 
     // Save the session data
-    session_2 = qof_session_new ();
-    qof_session_begin (session_2, url, FALSE, TRUE, TRUE);
+    auto book2{qof_book_new()};
+    auto session_2 = qof_session_new (book2);
+    qof_session_begin (session_2, url, SESSION_NEW_OVERWRITE);
     g_assert (session_2 != NULL);
     g_assert_cmpint (qof_session_get_error (session_2), == , ERR_BACKEND_NO_ERR);
     qof_session_swap_data (fixture->session, session_2);
@@ -407,9 +404,10 @@ test_dbi_store_and_reload (Fixture* fixture, gconstpointer pData)
     g_assert_cmpint (qof_session_get_error (session_2), == , ERR_BACKEND_NO_ERR);
 
     // Reload the session data
-    session_3 = qof_session_new ();
+    auto book3{qof_book_new()};
+    auto session_3 = qof_session_new (book3);
     g_assert (session_3 != NULL);
-    qof_session_begin (session_3, url, TRUE, FALSE, FALSE);
+    qof_session_begin (session_3, url, SESSION_READ_ONLY);
     g_assert (session_3 != NULL);
     g_assert_cmpint (qof_session_get_error (session_3), == , ERR_BACKEND_NO_ERR);
     qof_session_load (session_3, NULL);
@@ -436,8 +434,7 @@ static void
 test_dbi_safe_save (Fixture* fixture, gconstpointer pData)
 {
     auto url = (gchar*)pData;
-    QofSession* session_1 = NULL, *session_2 = NULL;
-
+    QofSession* session_2 = nullptr; // Otherwise goto cleanup bypasses init.
     auto msg = "[GncDbiSqlConnection::unlock_database()] There was no lock entry in the Lock table";
     auto log_domain = nullptr;
     auto loglevel = static_cast<GLogLevelFlags> (G_LOG_LEVEL_WARNING |
@@ -448,8 +445,9 @@ test_dbi_safe_save (Fixture* fixture, gconstpointer pData)
         url = fixture->filename;
 
     // Load the session data
-    session_1 = qof_session_new ();
-    qof_session_begin (session_1, url, FALSE, TRUE, TRUE);
+    auto book1{qof_book_new()};
+    auto session_1 = qof_session_new (book1);
+    qof_session_begin (session_1, url, SESSION_NEW_OVERWRITE);
     if (session_1 &&
         qof_session_get_error (session_1) != ERR_BACKEND_NO_ERR)
     {
@@ -474,8 +472,8 @@ test_dbi_safe_save (Fixture* fixture, gconstpointer pData)
     }
     /* Destroy the session and reload it */
 
-    session_2 = qof_session_new ();
-    qof_session_begin (session_2, url, TRUE, FALSE, FALSE);
+    session_2 = qof_session_new (qof_book_new());
+    qof_session_begin (session_2, url, SESSION_READ_ONLY);
     if (session_2 &&
         qof_session_get_error (session_2) != ERR_BACKEND_NO_ERR)
     {
@@ -514,8 +512,7 @@ static void
 test_dbi_version_control (Fixture* fixture, gconstpointer pData)
 {
     auto url = (gchar*)pData;
-    QofSession* sess;
-    QofBook* book;
+    QofBook* book{qof_book_new()};
     QofBackendError err;
     gint ourversion = gnc_prefs_get_long_version ();
     GncSqlBackend* sql_be = nullptr;
@@ -523,8 +520,8 @@ test_dbi_version_control (Fixture* fixture, gconstpointer pData)
     // Load the session data
     if (fixture->filename)
         url = fixture->filename;
-    sess = qof_session_new ();
-    qof_session_begin (sess, url, FALSE, TRUE, TRUE);
+    auto sess = qof_session_new (nullptr);
+    qof_session_begin (sess, url, SESSION_NEW_OVERWRITE);
     if (sess && qof_session_get_error (sess) != ERR_BACKEND_NO_ERR)
     {
         g_warning ("Session Error: %d, %s", qof_session_get_error (sess),
@@ -543,8 +540,8 @@ test_dbi_version_control (Fixture* fixture, gconstpointer pData)
     qof_book_commit_edit (book);
     qof_session_end (sess);
     qof_session_destroy (sess);
-    sess = qof_session_new ();
-    qof_session_begin (sess, url, TRUE, FALSE, FALSE);
+    sess = qof_session_new (qof_book_new());
+    qof_session_begin (sess, url, SESSION_READ_ONLY);
     qof_session_load (sess, NULL);
     err = qof_session_pop_error (sess);
     g_assert_cmpint (err, == , ERR_SQL_DB_TOO_OLD);
@@ -556,8 +553,8 @@ test_dbi_version_control (Fixture* fixture, gconstpointer pData)
     qof_book_commit_edit (book);
     qof_session_end (sess);
     qof_session_destroy (sess);
-    sess = qof_session_new ();
-    qof_session_begin (sess, url, TRUE, FALSE, FALSE);
+    sess = qof_session_new (qof_book_new());
+    qof_session_begin (sess, url, SESSION_READ_ONLY);
     qof_session_load (sess, NULL);
     qof_session_ensure_all_data_loaded (sess);
     err = qof_session_pop_error (sess);
@@ -575,8 +572,6 @@ cleanup:
 static void
 test_dbi_business_store_and_reload (Fixture* fixture, gconstpointer pData)
 {
-    QofSession* session_2;
-    QofSession* session_3;
     const gchar* url = (gchar*)pData;
 
     auto msg = "[GncDbiSqlConnection::unlock_database()] There was no lock entry in the Lock table";
@@ -587,15 +582,15 @@ test_dbi_business_store_and_reload (Fixture* fixture, gconstpointer pData)
     if (fixture->filename)
         url = fixture->filename;
     // Save the session data
-    session_2 = qof_session_new ();
-    qof_session_begin (session_2, url, FALSE, TRUE, TRUE);
+    auto session_2 = qof_session_new (qof_book_new());
+    qof_session_begin (session_2, url, SESSION_NEW_OVERWRITE);
     qof_session_swap_data (fixture->session, session_2);
     qof_book_mark_session_dirty (qof_session_get_book (session_2));
     qof_session_save (session_2, NULL);
 
     // Reload the session data
-    session_3 = qof_session_new ();
-    qof_session_begin (session_3, url, TRUE, FALSE, FALSE);
+    auto session_3 = qof_session_new (qof_book_new());
+    qof_session_begin (session_3, url, SESSION_READ_ONLY);
     qof_session_load (session_3, NULL);
 
     // Compare with the original data

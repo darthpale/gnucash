@@ -509,6 +509,7 @@ qof_book_get_session_dirty_time (const QofBook *book)
 void
 qof_book_set_dirty_cb(QofBook *book, QofBookDirtyCB cb, gpointer user_data)
 {
+    g_return_if_fail(book);
     if (book->dirty_cb)
         PWARN("Already existing callback %p, will be overwritten by %p\n",
                   book->dirty_cb, cb);
@@ -941,7 +942,7 @@ qof_book_normalize_counter_format_internal(const gchar *p,
 
     /* Copy the string we have so far and add normalized format specifier for long int */
     aux_str = g_strndup (base, p - base);
-    normalized_str = g_strconcat (aux_str, PRIi64, NULL);
+    normalized_str = g_strconcat (aux_str, PRIi64, nullptr);
     g_free (aux_str);
 
     /* Skip length modifier / conversion specifier */
@@ -973,7 +974,7 @@ qof_book_normalize_counter_format_internal(const gchar *p,
 
     /* Add the suffix to our normalized string */
     aux_str = normalized_str;
-    normalized_str = g_strconcat (aux_str, tmp, NULL);
+    normalized_str = g_strconcat (aux_str, tmp, nullptr);
     g_free (aux_str);
 
     /* If we end up here, the string was valid, so return no error
@@ -1045,7 +1046,7 @@ qof_book_use_trading_accounts (const QofBook *book)
 gboolean
 qof_book_use_split_action_for_num_field (const QofBook *book)
 {
-    g_assert(book);
+    g_return_val_if_fail (book, FALSE);
     if (!book->cached_num_field_source_isvalid)
     {
         // No cached value? Then do the expensive KVP lookup

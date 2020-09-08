@@ -101,11 +101,9 @@ static gboolean webkit_decide_policy_cb (WebKitWebView* web_view,
 static void webkit_mouse_target_cb (WebKitWebView* web_view,
                      WebKitHitTestResult *hit,
                      guint modifiers, gpointer data);
-#if WEBKIT_MINOR_VERSION >= 8
 static gboolean webkit_notification_cb (WebKitWebView *web_view,
                      WebKitNotification *note,
                      gpointer user_data);
-#endif
 static gboolean webkit_load_failed_cb (WebKitWebView *web_view,
                      WebKitLoadEvent event,
                      gchar *uri, GError *error,
@@ -150,12 +148,8 @@ gnc_html_webkit_webview_new (void)
      webkit_settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (view));
      g_object_set (G_OBJECT(webkit_settings),
                    "default-charset", "utf-8",
-#if WEBKIT_MINOR_VERSION >= 10
                    "allow-file-access-from-file-urls", TRUE,
-#endif
-#if WEBKIT_MINOR_VERSION >= 14
                    "allow-universal-access-from-file-urls", TRUE,
-#endif
                    "enable-java", FALSE,
                    "enable-page-cache", FALSE,
                    "enable-plugins", FALSE,
@@ -206,11 +200,9 @@ gnc_html_webkit_init( GncHtmlWebkit* self )
                        G_CALLBACK (webkit_mouse_target_cb),
                        self);
 
-#if WEBKIT_MINOR_VERSION >= 8
      g_signal_connect (priv->web_view, "show-notification",
                        G_CALLBACK (webkit_notification_cb),
                        self);
-#endif
 
      g_signal_connect (priv->web_view, "load-failed",
                        G_CALLBACK (webkit_load_failed_cb),
@@ -253,15 +245,9 @@ gnc_html_webkit_dispose( GObject* obj )
 
      if ( priv->web_view != NULL )
      {
-         // In Gtk Version 3.20 they relaxed the fact that the widget should be a
-         // direct child of the container otherwise it would be a critical error
-#if GTK_CHECK_VERSION(3,20,0)
-          gtk_container_remove( GTK_CONTAINER(priv->base.container),
-                                GTK_WIDGET(priv->web_view) );
-#else
-          GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(priv->web_view));
-          gtk_container_remove( GTK_CONTAINER(priv->base.container), parent);
-#endif
+          gtk_container_remove (GTK_CONTAINER(priv->base.container),
+                                GTK_WIDGET(priv->web_view));
+
           priv->web_view = NULL;
      }
 
@@ -604,7 +590,6 @@ perform_navigation_policy (WebKitWebView *web_view,
      const gchar* uri; // Can't init it here.
      gchar *scheme = NULL, *location = NULL, *label = NULL;
      gboolean ignore = FALSE;
-#if WEBKIT2_4
      WebKitNavigationAction *action =
       webkit_navigation_policy_decision_get_navigation_action (decision);
      if (webkit_navigation_action_get_navigation_type (action) !=
@@ -614,9 +599,6 @@ perform_navigation_policy (WebKitWebView *web_view,
           return TRUE;
      }
      req = webkit_navigation_action_get_request (action);
-#else
-     req = webkit_navigation_policy_decision_get_request (decision);
-#endif
      uri = webkit_uri_request_get_uri (req);
      scheme =  gnc_html_parse_url (self, uri, &location, &label);
      if (strcmp (scheme, URL_TYPE_FILE) != 0)
@@ -671,7 +653,6 @@ webkit_mouse_target_cb (WebKitWebView *web_view, WebKitHitTestResult *hit,
                    priv->base.flyover_cb_data);
      }
 }
-#if WEBKIT_MINOR_VERSION >= 8
 static gboolean
 webkit_notification_cb (WebKitWebView* web_view, WebKitNotification *note,
             gpointer user_data)
@@ -692,7 +673,6 @@ webkit_notification_cb (WebKitWebView* web_view, WebKitNotification *note,
      gtk_widget_destroy (dialog);
      return TRUE;
 }
-#endif
 
 static gboolean
 webkit_load_failed_cb (WebKitWebView *web_view, WebKitLoadEvent event,

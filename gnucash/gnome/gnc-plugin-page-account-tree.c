@@ -74,6 +74,20 @@
 /* This static indicates the debugging module that this .o belongs to.  */
 static QofLogModule log_module = GNC_MOD_GUI;
 
+
+/********************************************************************
+ * delete_account_helper
+ * See if this account has any splits present.  Set the user data
+ * and return the same value to stop walking the account tree if
+ * appropriate.
+ ********************************************************************/
+typedef struct _delete_helper
+{
+    gboolean has_splits;
+    gboolean has_ro_splits;
+} delete_helper_t;
+
+
 #define PLUGIN_PAGE_ACCT_TREE_CM_CLASS "plugin-page-acct-tree"
 #define STATE_SECTION "Account Hierarchy"
 
@@ -155,11 +169,20 @@ static void gnc_plugin_page_account_tree_cmd_lots (GtkAction *action, GncPluginP
 static void gnc_plugin_page_account_tree_cmd_scrub (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_scrub_sub (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_scrub_all (GtkAction *action, GncPluginPageAccountTree *page);
-static void gnc_plugin_page_account_tree_cmd_cascade_color_account (GtkAction *action, GncPluginPageAccountTree *page);
+static void gnc_plugin_page_account_tree_cmd_cascade_account_properties (GtkAction *action, GncPluginPageAccountTree *page);
 
 /* Command callback for new Register Test */
 static void gnc_plugin_page_account_tree_cmd_open2_account (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_open2_subaccounts (GtkAction *action, GncPluginPageAccountTree *page);
+/* Account Deletion Actions. */
+static int confirm_delete_account (GtkAction *action,
+                                   GncPluginPageAccountTree *page, Account* ta,
+                                   Account* sta, Account* saa,
+                                   delete_helper_t delete_res);
+static void  do_delete_account (Account* account, Account* saa, Account* sta,
+                                Account* ta);
+
+
 
 static guint plugin_page_signals[LAST_SIGNAL] = { 0 };
 
@@ -230,9 +253,9 @@ static GtkActionEntry gnc_plugin_page_account_tree_actions [] =
         G_CALLBACK (gnc_plugin_page_account_tree_cmd_delete_account)
     },
     {
-        "EditColorCascadeAccountAction", NULL, N_("_Cascade Account Color..."), NULL,
-        N_("Cascade selected account color"),
-        G_CALLBACK (gnc_plugin_page_account_tree_cmd_cascade_color_account)
+        "EditCascadeAccountAction", NULL, N_("_Cascade Account Properties..."), NULL,
+        N_("Cascade selected properties for account"),
+        G_CALLBACK (gnc_plugin_page_account_tree_cmd_cascade_account_properties)
     },
     {
         "EditFindAccountAction", "edit-find", N_("F_ind Account"), "<primary>i",
@@ -391,6 +414,30 @@ gnc_plugin_page_account_tree_new (void)
 G_DEFINE_TYPE_WITH_PRIVATE(GncPluginPageAccountTree, gnc_plugin_page_account_tree, GNC_TYPE_PLUGIN_PAGE)
 
 static void
+prepare_scrubbing ()
+{
+    gnc_suspend_gui_refresh ();
+    gnc_set_abort_scrub (FALSE);
+}
+
+static gboolean
+finish (GncPluginPage* page)
+{
+    if (gnc_get_ongoing_scrub ())
+    {
+        gboolean ret = gnc_verify_dialog (GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page))), FALSE, _("A scrubbing operation is currently pending, do you want to abort it?"));
+        if (ret)
+        {
+            gnc_set_abort_scrub (TRUE);
+            gnc_resume_gui_refresh (); // This is so quit does not complain about an ongoing operation.
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static void
 gnc_plugin_page_account_tree_class_init (GncPluginPageAccountTreeClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -407,6 +454,8 @@ gnc_plugin_page_account_tree_class_init (GncPluginPageAccountTreeClass *klass)
     gnc_plugin_class->save_page       = gnc_plugin_page_account_tree_save_page;
     gnc_plugin_class->recreate_page   = gnc_plugin_page_account_tree_recreate_page;
     gnc_plugin_class->focus_page_function = gnc_plugin_page_account_tree_focus_widget;
+    gnc_plugin_class->finish_pending = finish;
+
 
     plugin_page_signals[ACCOUNT_SELECTED] =
         g_signal_new ("account_selected",
@@ -665,8 +714,8 @@ gnc_plugin_page_account_tree_create_widget (GncPluginPage *plugin_page)
     gtk_box_set_homogeneous (GTK_BOX (priv->widget), FALSE);
     gtk_widget_show (priv->widget);
 
-    // Set the style context for this page so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(priv->widget), "GncAccountPage");
+    // Set the name for this widget so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(priv->widget), "gnc-id-account-page");
 
     scrolled_window = gtk_scrolled_window_new (NULL, NULL);
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
@@ -1072,7 +1121,7 @@ gnc_plugin_page_account_tree_selection_changed_cb (GtkTreeSelection *selection,
     g_object_set (G_OBJECT(action), "sensitive",
                   is_readwrite && sensitive && subaccounts, NULL);
 
-    action = gtk_action_group_get_action (action_group, "EditColorCascadeAccountAction");
+    action = gtk_action_group_get_action (action_group, "EditCascadeAccountAction");
     g_object_set (G_OBJECT(action), "sensitive", subaccounts, NULL);
 
     gnc_plugin_update_actions (action_group, actions_requiring_account_rw,
@@ -1190,7 +1239,7 @@ gnc_plugin_page_account_tree_cmd_find_account_popup (GtkAction *action, GncPlugi
 }
 
 static void
-gnc_plugin_page_account_tree_cmd_cascade_color_account (GtkAction *action, GncPluginPageAccountTree *page)
+gnc_plugin_page_account_tree_cmd_cascade_account_properties (GtkAction *action, GncPluginPageAccountTree *page)
 {
     Account *account = NULL;
     GtkWidget *window;
@@ -1199,25 +1248,13 @@ gnc_plugin_page_account_tree_cmd_cascade_color_account (GtkAction *action, GncPl
 
     account = gnc_plugin_page_account_tree_get_current_account (page);
 
-    window = gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(page));
+    window = gnc_plugin_page_get_window (GNC_PLUGIN_PAGE(page));
 
     if (account != NULL)
-        gnc_account_cascade_color_dialog (window, account);
+        gnc_account_cascade_properties_dialog (window, account);
 
     LEAVE(" ");
 }
-
-/********************************************************************
- * delete_account_helper
- * See if this account has any splits present.  Set the user data
- * and return the same value to stop walking the account tree if
- * appropriate.
- ********************************************************************/
-typedef struct _delete_helper
-{
-    gboolean has_splits;
-    gboolean has_ro_splits;
-} delete_helper_t;
 
 static gpointer
 delete_account_helper (Account * account, gpointer data)
@@ -1340,6 +1377,7 @@ gppat_setup_account_selector (GtkBuilder *builder, GtkWidget *dialog,
     GtkWidget *box = GTK_WIDGET(gtk_builder_get_object (builder, hbox));
 
     gtk_box_pack_start (GTK_BOX(box), selector, TRUE, TRUE, 0);
+    gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(selector), TRUE);
     g_object_set_data(G_OBJECT(dialog), sel_name, selector);
 
     gppat_populate_gas_list(dialog, GNC_ACCOUNT_SEL(selector), TRUE);
@@ -1348,26 +1386,225 @@ gppat_setup_account_selector (GtkBuilder *builder, GtkWidget *dialog,
     return selector;
 }
 
+static int
+commodity_mismatch_dialog (const Account* account, GtkWindow* parent)
+{
+    int response;
+    char *account_name = gnc_account_get_full_name (account);
+    char* message = g_strdup_printf (
+        _("Account %s does not have the same currency as the one you're "
+          "moving transactions from.\nAre you sure you want to do this?"),
+        account_name);
+    GtkWidget* error_dialog =
+        gtk_message_dialog_new (parent, GTK_DIALOG_DESTROY_WITH_PARENT,
+                                GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE,
+                                "%s", message);
+    gtk_dialog_add_buttons (GTK_DIALOG(error_dialog),
+                            _("_Pick another account"), GTK_RESPONSE_CANCEL,
+                            _("_Do it anyway"), GTK_RESPONSE_ACCEPT,
+                            (gchar *)NULL);
+    response = gtk_dialog_run (GTK_DIALOG (error_dialog));
+    gtk_widget_destroy (error_dialog);
+    g_free (message);
+    return response;
+}
+
+typedef struct
+{
+    Account *new_account;
+    Account *old_account;
+    GNCAccountSel *selector;
+    gboolean match;
+    gboolean for_account;
+} Adopter;
+
+static void
+adopter_set_account_and_match (Adopter* adopter)
+{
+    if (!(adopter->selector &&
+          gtk_widget_is_sensitive (GTK_WIDGET (adopter->selector))))
+        return;
+    adopter->new_account = gnc_account_sel_get_account(adopter->selector);
+/* We care about the commodity only if we're moving transactions. */
+    if (!adopter->for_account && adopter->old_account && adopter->new_account)
+        adopter->match =
+            xaccAccountGetCommodity (adopter->new_account) ==
+            xaccAccountGetCommodity (adopter->old_account);
+}
+
+static void
+adopter_init (Adopter* adopter, GtkWidget *selector, Account* account,
+              gboolean for_account)
+{
+    adopter->selector = GNC_ACCOUNT_SEL (selector);
+    adopter->new_account = NULL;
+    adopter->old_account = account;
+    adopter->match = TRUE;
+    adopter->for_account = for_account;
+}
+
+static gboolean
+adopter_match (Adopter* adopter, GtkWindow *parent)
+{
+    int result;
+    if (adopter->match || adopter->for_account)
+        return TRUE;
+    result = commodity_mismatch_dialog (adopter->new_account, parent);
+    return (result == GTK_RESPONSE_ACCEPT);
+}
+
+typedef struct
+{
+    Adopter trans;
+    Adopter subacct;
+    Adopter subtrans;
+    delete_helper_t delete_res;
+} Adopters;
+
+static Account*
+account_subaccount (Account* account)
+{
+    Account* subaccount = NULL;
+    GList *subs = gnc_account_get_children (account);
+    if (g_list_length (subs) == 1)
+        subaccount = subs->data;
+    g_list_free (subs);
+    return subaccount;
+}
+
+static GtkWidget*
+account_delete_dialog (Account *account, GtkWindow *parent, Adopters* adopt)
+{
+    GtkWidget *dialog = NULL;
+    GtkWidget *widget = NULL;
+    gchar *title = NULL;
+    GtkBuilder *builder = gtk_builder_new();
+    gchar *acct_name = gnc_account_get_full_name(account);
+    GList* splits = xaccAccountGetSplitList(account);
+    GList* filter = g_list_prepend(NULL, (gpointer)xaccAccountGetType(account));
+
+    if (!acct_name)
+        acct_name = g_strdup (_("(no name)"));
+
+    gnc_builder_add_from_file (builder, "dialog-account.glade", "account_delete_dialog");
+
+    dialog = GTK_WIDGET(gtk_builder_get_object (builder, "account_delete_dialog"));
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), parent);
+
+    /* FIXME: Same account type used for subaccount. */
+    g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_FILTER, filter);
+    g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_ACCOUNT, account);
+    widget = GTK_WIDGET(gtk_builder_get_object (builder, "header"));
+    title = g_strdup_printf(_("Deleting account %s"), acct_name);
+    gtk_label_set_text(GTK_LABEL(widget), title);
+    g_free(title);
+    g_free(acct_name);
+
+    widget = GTK_WIDGET(gtk_builder_get_object (builder, DELETE_DIALOG_OK_BUTTON));
+    g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_OK_BUTTON, widget);
+
+    // Add the account selectors and enable sections as appropriate
+    // setup transactions selector
+    adopter_init (&adopt->trans,
+                  gppat_setup_account_selector (builder, dialog,
+                                                "trans_mas_hbox",
+                                                DELETE_DIALOG_TRANS_MAS),
+                  account, FALSE);
+
+    // Does the selected account have splits
+    if (splits)
+    {
+        delete_helper_t delete_res2 = { FALSE, FALSE };
+
+        delete_account_helper(account, &delete_res2);
+        if (delete_res2.has_ro_splits)
+        {
+            gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_rw")));
+            widget = GTK_WIDGET(gtk_builder_get_object (builder, "trans_drb"));
+            gtk_widget_set_sensitive(widget, FALSE);
+        }
+        else
+            gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_ro")));
+    }
+    else
+    {
+        gtk_widget_set_sensitive (GTK_WIDGET(gtk_builder_get_object (builder, "transactions")), FALSE);
+        gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_ro")));
+    }
+
+    // setup subaccount account selector
+    adopter_init (&adopt->subacct,
+                  gppat_setup_account_selector (builder, dialog,
+                                                "sa_mas_hbox",
+                                                DELETE_DIALOG_SA_MAS),
+                  account, TRUE);
+
+    // setup subaccount transaction selector
+    adopter_init (&adopt->subtrans,
+                  gppat_setup_account_selector (builder, dialog,
+                                                "sa_trans_mas_hbox",
+                                                DELETE_DIALOG_SA_TRANS_MAS),
+                  account_subaccount (account), FALSE);
+    g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_TRANS,
+                      GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")));
+
+    if (gnc_account_n_children(account) > 0)
+    {
+        // Check for RO txns in descendants
+        gnc_account_foreach_descendant_until(account, delete_account_helper,
+                                             &adopt->delete_res);
+        if (adopt->delete_res.has_splits)
+        {
+            if (adopt->delete_res.has_ro_splits)
+            {
+                gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_rw")));
+                widget = GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_drb"));
+                gtk_widget_set_sensitive(widget, FALSE);
+            }
+            else
+                gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
+
+            g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_SPLITS, GINT_TO_POINTER(1));
+        }
+        else
+        {
+            g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_SPLITS, GINT_TO_POINTER(0));
+            gtk_widget_set_sensitive (GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")), FALSE);
+            gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
+        }
+    }
+    else
+    {
+        gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object (builder, "subaccounts")), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")), FALSE);
+        gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
+    }
+
+    /* default to cancel */
+    gtk_dialog_set_default_response (GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+
+    gtk_builder_connect_signals(builder, dialog);
+    g_object_unref(G_OBJECT(builder));
+
+    return dialog;
+}
+
 static void
 gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPageAccountTree *page)
 {
     Account *account = gnc_plugin_page_account_tree_get_current_account (page);
     gchar *acct_name;
-    delete_helper_t delete_res = { FALSE, FALSE };
     GtkWidget *window;
-    GtkWidget *trans_mas = NULL; /* transaction move to account selector */
-    GtkWidget *sa_mas = NULL;    /* subaccount move to account selector */
-    GtkWidget *sa_trans_mas = NULL; /* subaccount's transaction move to account selector */
-    Account *ta = NULL; /* transaction adopter */
-    Account *saa = NULL; /* subaccount adopter */
-    Account *sta = NULL; /* subaccount transaction adopter */
-    GList *splits;
+    Adopters adopt;
     GList* list;
     gint response;
+    GList *filter = NULL;
+    GtkWidget *dialog = NULL;
 
-    if (NULL == account)
+    if (account == NULL)
         return;
 
+    memset (&adopt, 0, sizeof (adopt));
     /* If the account has objects referring to it, show the list - the account can't be deleted until these
        references are dealt with. */
     list = qof_instance_get_referring_object_list(QOF_INSTANCE(account));
@@ -1383,283 +1620,205 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
     window = gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(page));
     acct_name = gnc_account_get_full_name(account);
     if (!acct_name)
-    {
         acct_name = g_strdup (_("(no name)"));
+
+    if (gnc_account_n_children(account) > 1) {
+        gchar* message = g_strdup_printf("Account '%s' has more than one subaccount, move subaccounts or delete them before attempting to delete this account.", acct_name);
+        gnc_error_dialog(GTK_WINDOW(window),"%s", message);
+        g_free (message);
+        g_free(acct_name);
+        return;
     }
 
-    splits = xaccAccountGetSplitList(account);
-
-    /*
-     * If the account has transactions or child accounts then present a
-     * dialog to allow the user to specify what should be done with them.
-     */
-    if ((NULL != splits) || (gnc_account_n_children(account) > 0))
+    // If no transaction or children just delete it.
+    if (!(xaccAccountCountSplits (account, FALSE) ||
+          gnc_account_n_children (account)))
     {
-        GList *filter = NULL;
-        GtkBuilder *builder = NULL;
-        GtkWidget *dialog = NULL;
-        GtkWidget *widget = NULL;
-        gchar *title = NULL;
+        do_delete_account (account, NULL, NULL, NULL);
+        return;
+    }
 
-        builder = gtk_builder_new();
-        gnc_builder_add_from_file (builder, "dialog-account.glade", "account_delete_dialog");
+    dialog = account_delete_dialog (account, GTK_WINDOW (window), &adopt);
 
-        dialog = GTK_WIDGET(gtk_builder_get_object (builder, "account_delete_dialog"));
-        gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
-
-        widget = GTK_WIDGET(gtk_builder_get_object (builder, "header"));
-        title = g_strdup_printf(_("Deleting account %s"), acct_name);
-        gtk_label_set_text(GTK_LABEL(widget), title);
-        g_free(title);
-
-        widget = GTK_WIDGET(gtk_builder_get_object (builder, DELETE_DIALOG_OK_BUTTON));
-        g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_OK_BUTTON, widget);
-
-        /*
-         * Reparent only to accounts of the same
-         * type as the one being deleted.
-         */
-        filter = g_list_prepend(NULL, (gpointer)xaccAccountGetType(account));
-        g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_FILTER, filter);
-        g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_ACCOUNT, account);
-
-        // Add the account selectors and enable sections as appropriate
-        // setup transactions selector
-        trans_mas = gppat_setup_account_selector (builder, dialog, "trans_mas_hbox", DELETE_DIALOG_TRANS_MAS);
-
-        // Does the selected account have splits
-        if (splits)
-        {
-            delete_helper_t delete_res2 = { FALSE, FALSE };
-
-            delete_account_helper(account, &delete_res2);
-            if (delete_res2.has_ro_splits)
-            {
-                gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_rw")));
-                widget = GTK_WIDGET(gtk_builder_get_object (builder, "trans_drb"));
-                gtk_widget_set_sensitive(widget, FALSE);
-            }
-            else
-                gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_ro")));
-        }
-        else
-        {
-            gtk_widget_set_sensitive (GTK_WIDGET(gtk_builder_get_object (builder, "transactions")), FALSE);
-            gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "trans_ro")));
-        }
-
-        // setup subaccount account selector
-        sa_mas = gppat_setup_account_selector (builder, dialog, "sa_mas_hbox", DELETE_DIALOG_SA_MAS);
-
-        // setup subaccount transaction selector
-        sa_trans_mas = gppat_setup_account_selector (builder, dialog, "sa_trans_mas_hbox", DELETE_DIALOG_SA_TRANS_MAS);
-        g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_TRANS,
-                          GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")));
-
-        // Does the selected account have sub accounts
-        if (gnc_account_n_children(account) > 0)
-        {
-            // Check for RO txns in descendants
-            gnc_account_foreach_descendant_until(account, delete_account_helper,
-                                                 &delete_res);
-            if (delete_res.has_splits)
-            {
-                if (delete_res.has_ro_splits)
-                {
-                    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_rw")));
-                    widget = GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_drb"));
-                    gtk_widget_set_sensitive(widget, FALSE);
-                }
-                else
-                    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
-
-                g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_SPLITS, GINT_TO_POINTER(1));
-            }
-            else
-            {
-                g_object_set_data(G_OBJECT(dialog), DELETE_DIALOG_SA_SPLITS, GINT_TO_POINTER(0));
-                gtk_widget_set_sensitive (GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")), FALSE);
-                gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
-            }
-        }
-        else
-        {
-            gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object (builder, "subaccounts")), FALSE);
-            gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object (builder, "subaccount_trans")), FALSE);
-            gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object (builder, "sa_trans_ro")));
-        }
-
-        /* default to cancel */
-        gtk_dialog_set_default_response (GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-
-        gtk_builder_connect_signals(builder, dialog);
-        g_object_unref(G_OBJECT(builder));
-
-        /*
-         * Note that one effect of the modal dialog is preventing
-         * the account selectors from being repopulated.
-         */
+    while (TRUE)
+    {
         response = gtk_dialog_run(GTK_DIALOG(dialog));
-        if (GTK_RESPONSE_ACCEPT != response)
+
+        if (response != GTK_RESPONSE_ACCEPT)
         {
             /* Account deletion is cancelled, so clean up and return. */
+            filter = g_object_get_data (G_OBJECT (dialog),
+                                        DELETE_DIALOG_FILTER);
             gtk_widget_destroy(dialog);
             g_list_free(filter);
-            g_free(acct_name);
             return;
         }
-        if (trans_mas && gtk_widget_is_sensitive(trans_mas))
-            ta = gnc_account_sel_get_account(GNC_ACCOUNT_SEL(trans_mas));
-        if (sa_mas && gtk_widget_is_sensitive(sa_mas))
-            saa = gnc_account_sel_get_account(GNC_ACCOUNT_SEL(sa_mas));
-        if (sa_trans_mas && gtk_widget_is_sensitive(sa_trans_mas))
-            sta = gnc_account_sel_get_account(GNC_ACCOUNT_SEL(sa_trans_mas));
-        gtk_widget_destroy(dialog);
-        g_list_free(filter);
-    } /* (NULL != splits) || (NULL != children) */
+        adopter_set_account_and_match (&adopt.trans);
+        adopter_set_account_and_match (&adopt.subacct);
+        adopter_set_account_and_match (&adopt.subtrans);
 
-    /*
-     * Present a message to the user which specifies what will be
-     * deleted and what will be reparented, then ask for verification.
-     */
+        if (adopter_match (&adopt.trans, GTK_WINDOW (window)) &&
+            adopter_match (&adopt.subacct, GTK_WINDOW (window)) &&
+            adopter_match (&adopt.subtrans, GTK_WINDOW (window)))
+            break;
+    }
+        filter = g_object_get_data (G_OBJECT (dialog), DELETE_DIALOG_FILTER);
+    gtk_widget_destroy(dialog);
+    g_list_free(filter);
+    if (confirm_delete_account (action, page, adopt.trans.new_account,
+                                adopt.subtrans.new_account,
+                                adopt.subacct.new_account,
+                                adopt.delete_res) == GTK_RESPONSE_ACCEPT)
+        do_delete_account (account, adopt.subacct.new_account,
+                           adopt.subtrans.new_account, adopt.trans.new_account);
+}
+
+static int
+confirm_delete_account (GtkAction *action, GncPluginPageAccountTree *page,
+                        Account* ta, Account* sta, Account* saa,
+                        delete_helper_t delete_res)
+{
+    Account *account = gnc_plugin_page_account_tree_get_current_account (page);
+    GList* splits = xaccAccountGetSplitList(account);
+    GtkWidget* window = gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(page));
+    gint response;
+
+    char *lines[6] = {0};
+    char *message;
+    int i = 0;
+    GtkWidget *dialog;
+    gchar* acct_name = gnc_account_get_full_name(account);
+
+    lines[i] = g_strdup_printf (_("The account %s will be deleted."),
+                                acct_name);
+    g_free(acct_name);
+
+    if (splits)
     {
-        const char *format = _("The account %s will be deleted.");
-        char *lines[8];
-        char *message;
-        char *name;
-        int i = 0;
-        GtkWidget *dialog;
-
-        lines[0] = g_strdup_printf(format, acct_name);
-        if (splits)
+        if (ta)
         {
-            if (ta)
-            {
-                name = gnc_account_get_full_name(ta);
-                format = _("All transactions in this account will be moved to "
-                           "the account %s.");
-                lines[++i] = g_strdup_printf(format, name);
-            }
-            else if (splits)
-            {
-                format = _("All transactions in this account will be deleted.");
-                lines[++i] = g_strdup_printf("%s", format);
-            }
+            char *name = gnc_account_get_full_name(ta);
+            lines[++i] = g_strdup_printf (_("All transactions in this account "
+                                            "will be moved to the account %s."),
+                                          name);
+            g_free (name);
         }
-        if (gnc_account_n_children(account) > 0)
+        else
         {
-            if (saa)
-            {
-                name = gnc_account_get_full_name(saa);
-                format = _("All of its sub-accounts will be moved to "
-                           "the account %s.");
-                lines[++i] = g_strdup_printf(format, name);
-            }
-            else
-            {
-                format = _("All of its subaccounts will be deleted.");
-                lines[++i] = g_strdup_printf("%s", format);
-                if (sta)
-                {
-                    name = gnc_account_get_full_name(sta);
-                    format = _("All sub-account transactions will be moved to "
-                               "the account %s.");
-                    lines[++i] = g_strdup_printf(format, name);
-                }
-                else if (delete_res.has_splits)
-                {
-                    format = _("All sub-account transactions will be deleted.");
-                    lines[++i] = g_strdup_printf("%s", format);
-                }
-            }
-        }
-        lines[++i] = _("Are you sure you want to do this?");
-        lines[i] = NULL;
-        i--; /* Don't try to free the constant question. */
-        message = g_strjoinv(" ", lines);
-        while (i--)
-        {
-            g_free(lines[i]);
-        }
-
-        dialog =  gtk_message_dialog_new(GTK_WINDOW(window),
-                                         GTK_DIALOG_DESTROY_WITH_PARENT,
-                                         GTK_MESSAGE_QUESTION,
-                                         GTK_BUTTONS_NONE,
-                                         "%s", message);
-        g_free(message);
-        gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-                               _("_Cancel"), GTK_RESPONSE_CANCEL,
-                               _("_Delete"), GTK_RESPONSE_ACCEPT,
-                               (gchar *)NULL);
-        gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-        response = gtk_dialog_run(GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
-
-        if (GTK_RESPONSE_ACCEPT == response)
-        {
-            GList *acct_list, *ptr;
-            const GncGUID *guid;
-            gchar guidstr[GUID_ENCODING_LENGTH+1];
-
-            gnc_set_busy_cursor(NULL, TRUE);
-            gnc_suspend_gui_refresh ();
-
-            /* Move subaccounts and transactions if this was requested */
-            xaccAccountBeginEdit (account);
-            if (NULL != saa)
-            {
-
-                xaccAccountBeginEdit (saa);
-                acct_list = gnc_account_get_children(account);
-                for (ptr = acct_list; ptr; ptr = g_list_next(ptr))
-                    gnc_account_append_child (saa, ptr->data);
-                g_list_free(acct_list);
-                xaccAccountCommitEdit (saa);
-            }
-            else if (NULL != sta)
-            {
-                /* Move the splits of its subaccounts, if any. */
-                gnc_account_foreach_descendant(account,
-                                               (AccountCb)xaccAccountMoveAllSplits,
-                                               sta);
-            }
-            if (NULL != ta)
-            {
-                /* Move the splits of the account to be deleted. */
-                xaccAccountMoveAllSplits (account, ta);
-            }
-            xaccAccountCommitEdit (account);
-
-            /* Drop all references from the state file for
-             * any subaccount the account still has
-             */
-            acct_list = gnc_account_get_children(account);
-            for (ptr = acct_list; ptr; ptr = g_list_next(ptr))
-            {
-                guid = xaccAccountGetGUID (ptr->data);
-                guid_to_string_buff (guid, guidstr);
-                gnc_state_drop_sections_for (guidstr);
-            }
-            g_list_free(acct_list);
-
-            /* Drop all references from the state file for this account
-             */
-            guid = xaccAccountGetGUID (account);
-            guid_to_string_buff (guid, guidstr);
-            gnc_state_drop_sections_for (guidstr);
-
-            /*
-             * Finally, delete the account, any subaccounts it may still
-             * have, and any splits it or its subaccounts may still have.
-             */
-            xaccAccountBeginEdit (account);
-            xaccAccountDestroy (account);
-            gnc_resume_gui_refresh ();
-            gnc_unset_busy_cursor(NULL);
+            lines[++i] = g_strdup_printf (_("All transactions in this account "
+                                            "will be deleted."));
         }
     }
-    g_free(acct_name);
+    if (gnc_account_n_children(account))
+    {
+        if (saa)
+        {
+            char *name = gnc_account_get_full_name(saa);
+            lines[++i] = g_strdup_printf (_("Its sub-account will be "
+                                            "moved to the account %s."), name);
+            g_free (name);
+        }
+        else
+        {
+            lines[++i] = g_strdup_printf (_("Its subaccount will be deleted."));
+            if (sta)
+            {
+                char *name = gnc_account_get_full_name(sta);
+                lines[++i] = g_strdup_printf (_("All sub-account transactions "
+                                                "will be moved to the "
+                                                "account %s."), name);
+                g_free (name);
+            }
+            else if (delete_res.has_splits)
+            {
+                lines[++i] = g_strdup_printf(_("All sub-account transactions "
+                                               "will be deleted."));
+            }
+        }
+    }
+
+    lines[++i] = _("Are you sure you want to do this?");
+
+    message = g_strjoinv(" ", lines);
+    for (int j = 0; j < i; ++j) // Don't try to free the last one, it's const.
+        g_free (lines[j]);
+
+    dialog =  gtk_message_dialog_new(GTK_WINDOW(window),
+                                     GTK_DIALOG_DESTROY_WITH_PARENT,
+                                     GTK_MESSAGE_QUESTION,
+                                     GTK_BUTTONS_NONE,
+                                     "%s", message);
+    g_free(message);
+    gtk_dialog_add_buttons(GTK_DIALOG(dialog),
+                           _("_Cancel"), GTK_RESPONSE_CANCEL,
+                           _("_Delete"), GTK_RESPONSE_ACCEPT,
+                           (gchar *)NULL);
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+    response = gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    return response;
+}
+
+void do_delete_account (Account* account, Account* saa, Account* sta, Account* ta)
+{
+    GList *acct_list, *ptr;
+    const GncGUID *guid;
+    gchar guidstr[GUID_ENCODING_LENGTH+1];
+    
+    gnc_set_busy_cursor(NULL, TRUE);
+    gnc_suspend_gui_refresh ();
+    
+    /* Move subaccounts and transactions if this was requested */
+    xaccAccountBeginEdit (account);
+    if (saa)
+    {
+        xaccAccountBeginEdit (saa);
+        acct_list = gnc_account_get_children(account);
+        for (ptr = acct_list; ptr; ptr = g_list_next(ptr))
+            gnc_account_append_child (saa, ptr->data);
+        g_list_free(acct_list);
+        xaccAccountCommitEdit (saa);
+    }
+    else if (sta)
+    {
+        /* Move the splits of its subaccounts, if any. */
+        gnc_account_foreach_descendant(account,
+                                       (AccountCb)xaccAccountMoveAllSplits,
+                                       sta);
+    }
+    if (ta)
+    {
+        /* Move the splits of the account to be deleted. */
+        xaccAccountMoveAllSplits (account, ta);
+    }
+    xaccAccountCommitEdit (account);
+    
+    /* Drop all references from the state file for
+     * any subaccount the account still has
+     */
+    acct_list = gnc_account_get_children(account);
+    for (ptr = acct_list; ptr; ptr = g_list_next(ptr))
+    {
+        guid = xaccAccountGetGUID (ptr->data);
+        guid_to_string_buff (guid, guidstr);
+        gnc_state_drop_sections_for (guidstr);
+    }
+    g_list_free(acct_list);
+    
+    /* Drop all references from the state file for this account
+     */
+    guid = xaccAccountGetGUID (account);
+    guid_to_string_buff (guid, guidstr);
+    gnc_state_drop_sections_for (guidstr);
+    
+    /*
+     * Finally, delete the account, any subaccounts it may still
+     * have, and any splits it or its subaccounts may still have.
+     */
+    xaccAccountBeginEdit (account);
+    xaccAccountDestroy (account);
+    gnc_resume_gui_refresh ();
+    gnc_unset_busy_cursor(NULL);
 }
 
 static void
@@ -1780,7 +1939,7 @@ gnc_plugin_page_account_tree_cmd_scrub (GtkAction *action, GncPluginPageAccountT
 
     g_return_if_fail (account != NULL);
 
-    gnc_suspend_gui_refresh ();
+    prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
     gnc_window_set_progressbar_window (window);
@@ -1806,7 +1965,7 @@ gnc_plugin_page_account_tree_cmd_scrub_sub (GtkAction *action, GncPluginPageAcco
 
     g_return_if_fail (account != NULL);
 
-    gnc_suspend_gui_refresh ();
+    prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
     gnc_window_set_progressbar_window (window);
@@ -1829,7 +1988,7 @@ gnc_plugin_page_account_tree_cmd_scrub_all (GtkAction *action, GncPluginPageAcco
     Account *root = gnc_get_current_root_account ();
     GncWindow *window;
 
-    gnc_suspend_gui_refresh ();
+    prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
     gnc_window_set_progressbar_window (window);

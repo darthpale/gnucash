@@ -47,17 +47,16 @@
 #include "qof.h"
 #include "guile-mappings.h"
 #include "gnc-prefs.h"
-#include "gnc-module.h"
 #include "Account.h"
 #include "Transaction.h"
 #include "gnc-engine.h"
+#include "gnc-features.h"
 #include "gnc-euro.h"
 #include "gnc-hooks.h"
+#include "gnc-locale-tax.h"
 #include "gnc-session.h"
 #include "engine-helpers.h"
 #include "gnc-locale-utils.h"
-#include "gnc-component-manager.h"
-#include "gnc-features.h"
 #include "gnc-guile-utils.h"
 
 #define GNC_PREF_CURRENCY_CHOICE_LOCALE "currency-choice-locale"
@@ -431,44 +430,6 @@ gnc_get_current_book_tax_type (void)
     }
 }
 
-/** Calls gnc_book_option_num_field_source_change to initiate registered
-  * callbacks when num_field_source book option changes so that
-  * registers/reports can update themselves; sets feature flag */
-void
-gnc_book_option_num_field_source_change_cb (gboolean num_action)
-{
-    gnc_suspend_gui_refresh ();
-    if (num_action)
-    {
-    /* Set a feature flag in the book for use of the split action field as number.
-     * This will prevent older GnuCash versions that don't support this feature
-     * from opening this file. */
-        gnc_features_set_used (gnc_get_current_book(),
-                                                GNC_FEATURE_NUM_FIELD_SOURCE);
-    }
-    gnc_book_option_num_field_source_change (num_action);
-    gnc_resume_gui_refresh ();
-}
-
-/** Calls gnc_book_option_book_currency_selected to initiate registered
-  * callbacks when currency accounting book option changes to book-currency so
-  * that registers/reports can update themselves; sets feature flag */
-void
-gnc_book_option_book_currency_selected_cb (gboolean use_book_currency)
-{
-    gnc_suspend_gui_refresh ();
-    if (use_book_currency)
-    {
-    /* Set a feature flag in the book for use of book currency. This will
-     * prevent older GnuCash versions that don't support this feature from
-     * opening this file. */
-        gnc_features_set_used (gnc_get_current_book(),
-                                GNC_FEATURE_BOOK_CURRENCY);
-    }
-    gnc_book_option_book_currency_selected (use_book_currency);
-    gnc_resume_gui_refresh ();
-}
-
 /** Returns TRUE if both book-currency and default gain/loss policy KVPs exist
   * and are valid and trading accounts are not used. */
 gboolean
@@ -682,27 +643,9 @@ gnc_ui_account_get_tax_info_string (const Account *account)
 
         if (get_form == SCM_UNDEFINED)
         {
-            GNCModule module;
             const gchar *tax_module;
             /* load the tax info */
-            /* This is a very simple hack that loads the (new, special) German
-               tax definition file in a German locale, or (default) loads the
-               US tax file. */
-# ifdef G_OS_WIN32
-            gchar *thislocale = g_win32_getlocale();
-            gboolean is_de_DE = (strncmp(thislocale, "de_DE", 5) == 0);
-            g_free(thislocale);
-# else /* !G_OS_WIN32 */
-            const char *thislocale = setlocale(LC_ALL, NULL);
-            gboolean is_de_DE = (strncmp(thislocale, "de_DE", 5) == 0);
-# endif /* G_OS_WIN32 */
-            tax_module = is_de_DE ?
-                         "gnucash/tax/de_DE" :
-                         "gnucash/tax/us";
-
-            module = gnc_module_load ((char *)tax_module, 0);
-
-            g_return_val_if_fail (module, NULL);
+            gnc_locale_tax_init ();
 
             get_form = scm_c_eval_string
                        ("(false-if-exception gnc:txf-get-form)");
@@ -959,6 +902,36 @@ gnc_get_reconcile_flag_order (void)
     return flags;
 }
 
+const char *
+gnc_get_association_str (char association_flag)
+{
+    switch (association_flag)
+    {
+    case WASSOC:
+        return C_("Association flag for 'web'", "w");
+    case FASSOC:
+        return C_("Association flag for 'file'", "f");
+    case ' ':
+        return " ";
+    default:
+        PERR("Bad association flag");
+        return NULL;
+    }
+}
+
+const char *
+gnc_get_association_valid_flags (void)
+{
+    static const char flags[] = { FASSOC, WASSOC, ' ', 0 };
+    return flags;
+}
+
+const char *
+gnc_get_association_flag_order (void)
+{
+    static const char flags[] = { FASSOC, WASSOC, ' ', 0 };
+    return flags;
+}
 
 static const char *
 equity_base_name (GNCEquityType equity_type)
@@ -1482,7 +1455,7 @@ gnc_share_print_info_places (int decplaces)
 }
 
 GNCPrintAmountInfo
-gnc_default_price_print_info (const gnc_commodity *curr)
+gnc_price_print_info (const gnc_commodity *curr, gboolean use_symbol)
 {
     GNCPrintAmountInfo info;
     gboolean force = gnc_prefs_get_bool (GNC_PREFS_GROUP_GENERAL,
@@ -1504,14 +1477,21 @@ gnc_default_price_print_info (const gnc_commodity *curr)
     }
 
     info.use_separators = 1;
-    info.use_symbol = 0;
+    info.use_symbol = use_symbol ? 1 : 0;
     info.use_locale = 1;
     info.monetary = 1;
-    
+
     info.force_fit = force;
     info.round = force;
     return info;
 }
+
+GNCPrintAmountInfo
+gnc_default_price_print_info (const gnc_commodity *curr)
+{
+    return gnc_price_print_info (curr, FALSE);
+}
+
 
 GNCPrintAmountInfo
 gnc_integral_print_info (void)
@@ -1572,7 +1552,7 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
     }
     min_dp = info->min_decimal_places;
     max_dp = info->max_decimal_places;
-    
+
     /* Don to limit the number of decimal places _UNLESS_ force_fit is
      * true. */
     if (!info->force_fit)
@@ -2661,4 +2641,46 @@ gnc_ui_util_init (void)
     gnc_prefs_register_cb(GNC_PREFS_GROUP_GENERAL, GNC_PREF_AUTO_DECIMAL_PLACES,
                           gnc_set_auto_decimal_places, NULL);
 
+}
+
+void
+gnc_ui_util_remove_registered_prefs (void)
+{
+    // remove the registered pref call backs above
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_ACCOUNT_SEPARATOR,
+                                 gnc_configure_account_separator, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_REVERSED_ACCTS_NONE,
+                                 gnc_configure_reverse_balance, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_REVERSED_ACCTS_CREDIT,
+                                 gnc_configure_reverse_balance, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_REVERSED_ACCTS_INC_EXP,
+                                 gnc_configure_reverse_balance, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_CURRENCY_CHOICE_LOCALE,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_CURRENCY_CHOICE_OTHER,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_CURRENCY_OTHER,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL_REPORT,
+                                 GNC_PREF_CURRENCY_CHOICE_LOCALE,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL_REPORT,
+                                 GNC_PREF_CURRENCY_CHOICE_OTHER,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL_REPORT,
+                                 GNC_PREF_CURRENCY_OTHER,
+                                 gnc_currency_changed_cb, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_AUTO_DECIMAL_POINT,
+                                 gnc_set_auto_decimal_enabled, NULL);
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_AUTO_DECIMAL_PLACES,
+                                 gnc_set_auto_decimal_places, NULL);
 }

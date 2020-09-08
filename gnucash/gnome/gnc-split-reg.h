@@ -37,6 +37,9 @@
 #define IS_GNC_SPLIT_REG(obj)      G_TYPE_CHECK_INSTANCE_TYPE( obj, gnc_split_reg_get_type() )
 
 #define STATE_SECTION_REG_PREFIX "Register"
+#define KEY_PAGE_SORT            "register_order"
+#define KEY_PAGE_SORT_REV        "register_reversed"
+#define KEY_PAGE_FILTER          "register_filter"
 
 typedef struct _GNCSplitReg GNCSplitReg;
 typedef struct _GNCSplitRegClass GNCSplitRegClass;
@@ -244,6 +247,17 @@ void gnc_split_reg_jump_to_blank (GNCSplitReg *gsr);
 void gnc_split_reg_jump_to_split(GNCSplitReg *gsr, Split *split);
 void gnc_split_reg_jump_to_split_amount(GNCSplitReg *gsr, Split *split);
 
+/** Check if the split is visible and ask if register filter should
+ *  be cleared if split is not visible.
+ *
+ *  @param gsr A pointer to GNCSplitReg
+ * 
+ *  @param split A pointer to the split to check visibility on
+ * 
+ *  @return TRUE if the register filter should be cleared
+ **/
+gboolean gnc_split_reg_clear_filter_for_split (GNCSplitReg *gsr, Split *split);
+
 /**
  * Set the focus of the register to the sheet
  **/
@@ -260,8 +274,24 @@ void gnc_split_reg_set_sheet_focus (GNCSplitReg *gsr, gboolean has_focus);
 void gnc_split_reg_balancing_entry (GNCSplitReg *gsr, Account *account,
                                     time64 statement_date, gnc_numeric balancing_amount);
 
-void gsr_default_associate_handler (GNCSplitReg *gsr, gboolean uri_is_file);
-void gsr_default_execassociated_handler( GNCSplitReg *gsr, gpointer data );
+/** Default transaction association edit handler
+ *
+ *  @param gsr A pointer to GNCSplitReg
+ **/
+void gsr_default_associate_handler (GNCSplitReg *gsr);
+
+/** Default transaction association open handler
+ *
+ *  @param gsr A pointer to GNCSplitReg
+ **/
+void gsr_default_associate_open_handler (GNCSplitReg *gsr);
+
+/** Default transaction association delete handler
+ *
+ *  @param gsr A pointer to GNCSplitReg
+ **/
+void gsr_default_associate_remove_handler (GNCSplitReg *gsr);
+
 void gnc_split_reg_enter( GNCSplitReg *gsr, gboolean next_transaction );
 void gsr_default_delete_handler( GNCSplitReg *gsr, gpointer data );
 void gsr_default_cut_txn_handler( GNCSplitReg *gsr, gpointer data );

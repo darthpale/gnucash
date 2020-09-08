@@ -26,6 +26,23 @@
 
 #include "Account.h"
 
+/* Note: make sure to update the help text for this in prefs.scm if these
+ * change!  These macros define the account types for which an auto interest
+ * xfer dialog could pop up, if the user's preferences allow it.
+ */
+#define account_type_has_auto_interest_charge(type)  (((type) == ACCT_TYPE_CREDIT) || \
+((type) == ACCT_TYPE_LIABILITY) ||\
+((type) == ACCT_TYPE_PAYABLE))
+
+#define account_type_has_auto_interest_payment(type) (((type) == ACCT_TYPE_BANK)  || \
+((type) == ACCT_TYPE_ASSET) || \
+((type) == ACCT_TYPE_MUTUAL) || \
+((type) == ACCT_TYPE_RECEIVABLE))
+
+#define account_type_has_auto_interest_xfer(type) \
+(  account_type_has_auto_interest_charge(type) || \
+account_type_has_auto_interest_payment(type) )
+
 /** @addtogroup GUI
     @{ */
 /** @addtogroup GuiAccount Creating and editing accounts in the GUI
@@ -161,7 +178,7 @@ void gnc_ui_register_account_destroy_callback (void (*cb)(Account *));
 
 void gnc_account_renumber_create_dialog (GtkWidget *window, Account *account);
 
-void gnc_account_cascade_color_dialog (GtkWidget *window, Account *account);
+void gnc_account_cascade_properties_dialog (GtkWidget *window, Account *account);
 
 /** @} */
 /** @} */

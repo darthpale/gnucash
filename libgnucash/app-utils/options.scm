@@ -17,7 +17,7 @@
 ;; 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 (use-modules (ice-9 regex))
-(use-modules (gnucash gettext))
+(use-modules (gnucash core-utils))
 
 (define (rpterror-earlier type newoption fallback)
   ;; Translators: the 3 ~a below refer to (1) option type (2) unknown
@@ -27,7 +27,7 @@
 GnuCash. One of the newer ~a options '~a' is not available, fallback to \
 the option '~a'."))
          (console-msg (format #f template type newoption fallback))
-         (ui-msg (format #f (_ template) type newoption fallback)))
+         (ui-msg (format #f (G_ template) type newoption fallback)))
     (gnc:gui-warn console-msg ui-msg)))
 
 (define (gnc:make-option
@@ -1680,6 +1680,7 @@ the option '~a'."))
       ("Void Transactions?" "Filter" "Void Transactions")
       ("Void Transactions" "Filter" "Void Transactions")
       ("Account Substring" "Filter" "Account Name Filter")
+      ("Enable links" #f "Enable Links")
       ;; invoice.scm, renamed November 2018
       ("Individual Taxes" #f "Use Detailed Tax Summary")
       ))
@@ -1984,19 +1985,6 @@ the option '~a'."))
    (lambda (option)
      (gnc-option-db-register-option db_handle option))
    options))
-
-(define (gnc:save-options options options-string file header truncate?)
-  (issue-deprecation-warning
-   "gnc:save-options is deprecated.")
-  (let ((code (gnc:generate-restore-forms options options-string))
-        (port (false-if-exception
-               (if truncate? 
-                   (open file (logior O_WRONLY O_CREAT O_TRUNC))
-                   (open file (logior O_WRONLY O_CREAT O_APPEND))))))
-    (if port (begin
-               (display header port)
-               (display code port)
-               (close port)))))
 
 (define (gnc:options-make-end-date! options pagename optname sort-tag info)
   (gnc:register-option 

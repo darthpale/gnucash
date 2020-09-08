@@ -138,7 +138,7 @@ gnc_tree_view_account_class_init (GncTreeViewAccountClass *klass)
     o_class->finalize = gnc_tree_view_account_finalize;
 
     gnc_hook_add_dangler(HOOK_CURRENCY_CHANGED,
-                         (GFunc)gtva_currency_changed_cb, NULL);
+                         (GFunc)gtva_currency_changed_cb, NULL, NULL);
 }
 
 /********************************************************************\
@@ -207,6 +207,31 @@ gnc_tree_view_account_finalize (GObject *object)
 /************************************************************
  *                        Callbacks                         *
  ************************************************************/
+static void
+gnc_tree_view_account_hidden_toggled (GtkCellRendererToggle *cell,
+                                      const gchar *s_path_str,
+                                      gpointer user_data)
+{
+    GncTreeViewAccount *tree_view;
+    GtkTreePath *s_path;
+    Account *account;
+    gboolean hidden;
+
+    /* Change the requested account */
+    tree_view = user_data;
+    s_path = gtk_tree_path_new_from_string (s_path_str);
+    account = gnc_tree_view_account_get_account_from_path (tree_view, s_path);
+    if (account)
+    {
+        hidden = !gtk_cell_renderer_toggle_get_active (cell); // hasn't changed yet.
+        xaccAccountSetHidden (account, hidden);
+    }
+
+    /* Clean up */
+    gtk_tree_path_free (s_path);
+}
+
+
 static void
 gnc_tree_view_account_placeholder_toggled (GtkCellRendererToggle *cell,
         const gchar *s_path_str,
@@ -421,6 +446,29 @@ sort_by_total_value (GtkTreeModel *f_model,
 {
     return sort_by_xxx_value (xaccAccountGetBalanceInCurrency, TRUE,
                               f_model, f_iter_a, f_iter_b, user_data);
+}
+
+static gint
+sort_by_hidden (GtkTreeModel *f_model,
+                GtkTreeIter *f_iter_a,
+                GtkTreeIter *f_iter_b,
+                gpointer user_data)
+{
+    const Account *account_a, *account_b;
+    gboolean flag_a, flag_b;
+
+    /* Find the accounts */
+    sort_cb_setup (f_model, f_iter_a, f_iter_b, &account_a, &account_b);
+
+    /* Get the placeholder flags. */
+    flag_a = xaccAccountGetHidden (account_a);
+    flag_b = xaccAccountGetHidden (account_b);
+
+    if (flag_a > flag_b)
+        return -1;
+    else if (flag_a < flag_b)
+        return 1;
+    return xaccAccountOrder (account_a, account_b);
 }
 
 static gint
@@ -698,7 +746,7 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
     ENTER(" ");
     /* Create our view */
     view = g_object_new (GNC_TYPE_TREE_VIEW_ACCOUNT,
-                         "name", "account_tree", NULL);
+                         "name", "gnc-id-account-tree", NULL);
 
     priv = GNC_TREE_VIEW_ACCOUNT_GET_PRIVATE(GNC_TREE_VIEW_ACCOUNT (view));
 
@@ -872,7 +920,7 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
 
     /* Translators: The C is the column title and stands for Color, this should be one character */
     acc_color_column
-        = gnc_tree_view_add_text_column(view, _("C"), "account-color", NULL,
+        = gnc_tree_view_add_text_column(view, C_("Column header for 'Color'", "C"), "account-color", NULL,
                                         "xx",
                                         GNC_TREE_VIEW_COLUMN_DATA_NONE,
                                         GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS,
@@ -882,12 +930,16 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
     g_object_set_data_full(G_OBJECT(acc_color_column), REAL_TITLE,
                            g_strdup(_("Account Color")), g_free);
 
+    /* Also add the full title to the column header as a tooltip */
+    gtk_widget_set_tooltip_text (gtk_tree_view_column_get_button (acc_color_column), _("Account Color"));
+
     priv->notes_column
-        = gnc_tree_view_add_text_column(view, _("Notes"), "notes", NULL,
+        = gnc_tree_view_add_text_view_column(view, _("Notes"), "notes", NULL,
                                         "Sample account notes.",
                                         GNC_TREE_MODEL_ACCOUNT_COL_NOTES,
                                         GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS,
                                         sort_by_string);
+
     tax_info_column
         = gnc_tree_view_add_text_column(view, _("Tax Info"), "tax-info", NULL,
                                         "Sample tax info.",
@@ -901,6 +953,14 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
                                             tax_info_data_func,
                                             GTK_TREE_VIEW(view),
                                             NULL);
+
+    gnc_tree_view_add_toggle_column (view, _("Hidden"),
+                                     C_("Column header for 'Hidden'", "H"),
+                                     "hidden",
+                                     GNC_TREE_MODEL_ACCOUNT_COL_HIDDEN,
+                                     GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS,
+                                     sort_by_hidden,
+                                     gnc_tree_view_account_hidden_toggled);
 
     gnc_tree_view_add_toggle_column(view, _("Placeholder"),
 				    C_("Column header for 'Placeholder'", "P"),
@@ -1893,11 +1953,28 @@ gnc_tree_view_account_add_custom_column(GncTreeViewAccount *account_view,
                                         col_edited_cb)
 {
     GtkCellRenderer *renderer;
+
+    g_return_val_if_fail(GNC_IS_TREE_VIEW_ACCOUNT(account_view), NULL);
+
+    renderer = gtk_cell_renderer_text_new();
+
+    return gnc_tree_view_account_add_custom_column_renderer(
+        account_view, column_title, col_source_cb, col_edited_cb, renderer);
+}
+
+GtkTreeViewColumn *
+gnc_tree_view_account_add_custom_column_renderer(GncTreeViewAccount *account_view,
+                                        const gchar *column_title,
+                                        GncTreeViewAccountColumnSource
+                                        col_source_cb,
+                                        GncTreeViewAccountColumnTextEdited
+                                        col_edited_cb,
+                                        GtkCellRenderer *renderer)
+{
     GtkTreeViewColumn *column;
 
     g_return_val_if_fail (GNC_IS_TREE_VIEW_ACCOUNT (account_view), NULL);
 
-    renderer = gtk_cell_renderer_text_new ();
     g_object_set (G_OBJECT (renderer), "xalign", 1.0, NULL);
 
     column = gtk_tree_view_column_new_with_attributes (column_title,
@@ -2182,9 +2259,9 @@ gppat_filter_response_cb (GtkWidget *dialog,
     }
 
     /* Clean up and delete dialog */
-    gptemp = (gpointer *)fd->dialog;
+    gptemp = (gpointer)fd->dialog;
     g_atomic_pointer_compare_and_exchange(&gptemp,
-                                          dialog, NULL);
+                                          (gpointer)dialog, NULL);
     fd->dialog = gptemp;
     gtk_widget_destroy(dialog);
     LEAVE("types 0x%x", fd->visible_types);
@@ -2412,10 +2489,6 @@ gnc_tree_view_account_save_filter (GncTreeViewAccount *view,
                            fd->show_zero_total);
     g_key_file_set_boolean (key_file, group_name, SHOW_UNUSED_ACCOUNTS,
                            fd->show_unused);
-
-    g_key_file_set_comment (key_file, group_name, ACCOUNT_TYPES,
-                            "Account Filter Section below, four lines", NULL);
-
     LEAVE("");
 }
 
@@ -2434,6 +2507,7 @@ tree_restore_expanded_row (GncTreeViewAccount *view,
     QofBook *book;
 
     book = qof_session_get_book(gnc_get_current_session());
+    g_return_if_fail(book);
     account = gnc_account_lookup_by_full_name(gnc_book_get_root_account(book),
               account_name);
     if (account)
@@ -2456,6 +2530,7 @@ tree_restore_selected_row (GncTreeViewAccount *view,
     QofBook *book;
 
     book = qof_session_get_book(gnc_get_current_session());
+    g_return_if_fail(book);
     account = gnc_account_lookup_by_full_name(gnc_book_get_root_account(book),
               account_name);
     if (account)

@@ -360,7 +360,18 @@ void gnc_account_set_balance_dirty (Account *acc);
  *
  *  @param acc Set the flag on this account. */
 void gnc_account_set_sort_dirty (Account *acc);
-
+    
+/** Set the defer balance flag. If defer is true, the account balance
+ * is not automatically computed, which can save a lot of time if
+ * multiple operations have to be done on the same account. If
+ * defer is false, further operations on account will cause the
+ * balance to be recomputed as normal.
+ *
+ *  @param acc Set the flag on this account.
+ *
+ *  @param defer New value for the flag. */
+void gnc_account_set_defer_bal_computation (Account *acc, gboolean defer);
+    
 /** Insert the given split from an account.
  *
  *  @param acc The account to which the split should be added.
@@ -403,6 +414,8 @@ const char * xaccAccountGetNotes (const Account *account);
 const char * xaccAccountGetLastNum (const Account *account);
 /** Get the account's lot order policy */
 GNCPolicy *gnc_account_get_policy (Account *account);
+/** Get the account's flag for deferred balance computation */
+gboolean gnc_account_get_defer_bal_computation (Account *acc);
 
 /** The following recompute the partial balances (stored with the
  *  transaction) and the total balance, for this account
@@ -455,18 +468,6 @@ void dxaccAccountSetPriceSrc (Account *account, const char *src);
  *  @deprecated Price quote information is now stored on the
  *  commodity, not the account. */
 const char * dxaccAccountGetPriceSrc (const Account *account);
-
-/** Returns a per-account flag: Prior to reconciling an account which
-    charges or pays interest, this flag tells whether to prompt the
-    user to enter a transaction for the interest charge or
-    payment. This per-account flag overrides the global preference. */
-gboolean xaccAccountGetAutoInterestXfer (const Account *account,
-        gboolean default_value);
-/** Sets a per-account flag: Prior to reconciling an account which
-    charges or pays interest, this flag tells whether to prompt the
-    user to enter a transaction for the interest charge or
-    payment. This per-account flag overrides the global preference. */
-void xaccAccountSetAutoInterestXfer (Account *account, gboolean value);
 /** @} */
 
 /** @name Account Commodity setters/getters
@@ -917,7 +918,7 @@ Account *gnc_account_lookup_by_name (const Account *parent, const char *name);
 Account *gnc_account_lookup_by_full_name (const Account *any_account,
         const gchar *name);
 
-/** The gnc_account_lookup_full_name() subroutine works like
+/** The gnc_account_lookup_by_code() subroutine works like
  *  gnc_account_lookup_by_name, but uses the account code.
  */
 Account *gnc_account_lookup_by_code (const Account *parent,
@@ -975,6 +976,11 @@ guint32 xaccAccountTypesValid(void);
  *  Asset or Liability type, but not a business account type
  *  (meaning not an Accounts Payable/Accounts Receivable). */
 gboolean xaccAccountIsAssetLiabType(GNCAccountType t);
+    
+/** Convenience function to return the fundamental type
+ * asset/liability/income/expense/equity given an account type. */
+GNCAccountType xaccAccountTypeGetFundamental (GNCAccountType t);
+
 
 /** Convenience function to check if the account is a valid
  *  business account type
@@ -1218,6 +1224,29 @@ void xaccAccountSetHidden (Account *acc, gboolean val);
  *  @return Whether or not this account should be "hidden". */
 gboolean xaccAccountIsHidden (const Account *acc);
 /** @} */
+    
+/** @name Account Auto Interest flag
+ @{
+ */
+
+/** Get the "auto interest" flag for an account.  If this flag is set then
+ *  the account (and any children) will trigger an interest transfer after reconciling.
+ *
+ *  @param acc The account whose flag should be retrieved.
+ *
+ *  @return The current state of the account's "auto interest" flag. */
+gboolean xaccAccountGetAutoInterest (const Account *acc);
+
+/** Set the "auto interest" flag for an account.  If this flag is set then
+ *  the account (and any children) will trigger an interest transfer after reconciling.
+ *
+ *  @param acc The account whose flag should be retrieved.
+ *
+ *  @param val The new state for the account's "auto interest" flag. */
+void xaccAccountSetAutoInterest (Account *acc, gboolean val);
+
+/** @} */
+
 
 /** @name Account Tax related getters/setters
  @{
@@ -1239,6 +1268,17 @@ void xaccAccountSetTaxUSPayerNameSource (Account *account, const char *source);
 gint64 xaccAccountGetTaxUSCopyNumber (const Account *account);
 /** DOCUMENT ME! */
 void xaccAccountSetTaxUSCopyNumber (Account *account, gint64 copy_number);
+/** @} */
+
+/** @name Account type debit/credit string getters
+ @ {      *
+ */
+
+/** Get the debit string associated with this account type */
+const char *gnc_account_get_debit_string (GNCAccountType acct_type);
+/** Get the credit string associated with this account type */
+const char *gnc_account_get_credit_string (GNCAccountType acct_type);
+
 /** @} */
 
 
@@ -1449,10 +1489,10 @@ GList *gnc_account_imap_get_info_bayes (Account *acc);
  */
 GList *gnc_account_imap_get_info (Account *acc, const char *category);
 
-/** Returns the text string pointed to by full_category for the Account, free
+/** Returns the text string pointed to by head and category for the Account, free
  *  the returned text
  */
-gchar *gnc_account_get_map_entry (Account *acc, const char *full_category);
+gchar *gnc_account_get_map_entry (Account *acc, const char *head, const char *category);
 
 /** Delete the entry for Account pointed to by head,category and match_string,
  *  if empty is TRUE then use delete if empty

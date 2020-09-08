@@ -60,29 +60,15 @@ static QofLogModule log_module = GNC_MOD_GUI;
 static GNCShutdownCB shutdown_cb = NULL;
 static gint save_in_progress = 0;
 
-
-/********************************************************************\
- * gnc_file_dialog                                                  *
- *   Pops up a file selection dialog (either a "Save As" or an      *
- *   "Open"), and returns the name of the file the user selected.   *
- *   (This function does not return until the user selects a file   *
- *   or presses "Cancel" or the window manager destroy button)      *
- *                                                                  *
- * Args:   title        - the title of the window                   *
- *         filters      - list of GtkFileFilters to use, will be    *
-                          freed automatically                       *
- *         default_dir  - start the chooser in this directory       *
- *         type         - what type of dialog (open, save, etc.)    *
- * Return: containing the name of the file the user selected        *
-\********************************************************************/
-
-char *
-gnc_file_dialog (GtkWindow *parent,
-                 const char * title,
-                 GList * filters,
-                 const char * starting_dir,
-                 GNCFileDialogType type
-                )
+// gnc_file_dialog_int is used both by gnc_file_dialog and gnc_file_dialog_multi
+static GSList *
+gnc_file_dialog_int (GtkWindow *parent,
+                     const char * title,
+                     GList * filters,
+                     const char * starting_dir,
+                     GNCFileDialogType type,
+                     gboolean multi
+                     )
 {
     GtkWidget *file_box;
     const char *internal_name;
@@ -91,6 +77,7 @@ gnc_file_dialog (GtkWindow *parent,
     const gchar *ok_icon = NULL;
     GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
     gint response;
+    GSList* file_name_list = NULL;
 
     ENTER(" ");
 
@@ -130,6 +117,9 @@ gnc_file_dialog (GtkWindow *parent,
                    action,
                    _("_Cancel"), GTK_RESPONSE_CANCEL,
                    NULL);
+    if (multi)
+        gtk_file_chooser_set_select_multiple (GTK_FILE_CHOOSER (file_box), TRUE);
+    
     if (ok_icon)
         gnc_gtk_dialog_add_button(file_box, okbutton, ok_icon, GTK_RESPONSE_ACCEPT);
     else
@@ -169,28 +159,90 @@ gnc_file_dialog (GtkWindow *parent,
 
     response = gtk_dialog_run(GTK_DIALOG(file_box));
 
-    // Set the style context for this widget so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(file_box), "GncFileDialog");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(file_box), "gnc-id-file");
 
     if (response == GTK_RESPONSE_ACCEPT)
     {
-        /* look for constructs like postgres://foo */
-        internal_name = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER (file_box));
-        if (internal_name != NULL)
+        if (multi)
         {
-            if (strstr (internal_name, "file://") == internal_name)
+            file_name_list = gtk_file_chooser_get_filenames (GTK_FILE_CHOOSER (file_box));
+        }
+        else
+        {
+            /* look for constructs like postgres://foo */
+            internal_name = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER (file_box));
+            if (internal_name != NULL)
             {
-                /* nope, a local file name */
-                internal_name = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (file_box));
+                if (strstr (internal_name, "file://") == internal_name)
+                {
+                    /* nope, a local file name */
+                    internal_name = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (file_box));
+                }
+                file_name = g_strdup(internal_name);
             }
-            file_name = g_strdup(internal_name);
+            file_name_list = g_slist_append (file_name_list, file_name);
         }
     }
     gtk_widget_destroy(GTK_WIDGET(file_box));
     LEAVE("%s", file_name ? file_name : "(null)");
+    return file_name_list;
+}
+
+/********************************************************************\
+ * gnc_file_dialog                                                  *
+ *   Pops up a file selection dialog (either a "Save As" or an      *
+ *   "Open"), and returns the name of the file the user selected.   *
+ *   (This function does not return until the user selects a file   *
+ *   or presses "Cancel" or the window manager destroy button)      *
+ *                                                                  *
+ * Args:   title        - the title of the window                   *
+ *         filters      - list of GtkFileFilters to use, will be    *
+ *                        freed automatically                       *
+ *         default_dir  - start the chooser in this directory       *
+ *         type         - what type of dialog (open, save, etc.)    *
+ * Return: containing the name of the file the user selected        *
+ \********************************************************************/
+char *
+gnc_file_dialog (GtkWindow *parent,
+                 const char * title,
+                 GList * filters,
+                 const char * starting_dir,
+                 GNCFileDialogType type
+                 )
+{
+    gchar* file_name = NULL;
+    GSList* ret = gnc_file_dialog_int (parent, title, filters, starting_dir, type, FALSE);
+    if (ret)
+        file_name = g_strdup (ret->data);
+    g_slist_free_full (ret, g_free);
     return file_name;
 }
 
+/********************************************************************\
+ * gnc_file_dialog_multi                                            *
+ *   Pops up a file selection dialog (either a "Save As" or an      *
+ *   "Open"), and returns the name of the files the user selected.  *
+ *   Similar to gnc_file_dialog with allowing multi-file selection  *
+ *                                                                  *
+ * Args:   title        - the title of the window                   *
+ *         filters      - list of GtkFileFilters to use, will be    *
+ *                        freed automatically                       *
+ *         default_dir  - start the chooser in this directory       *
+ *         type         - what type of dialog (open, save, etc.)    *
+ * Return: GList containing the names of the selected files         *
+ \********************************************************************/
+
+GSList *
+gnc_file_dialog_multi (GtkWindow *parent,
+                       const char * title,
+                       GList * filters,
+                       const char * starting_dir,
+                       GNCFileDialogType type
+                       )
+{
+    return gnc_file_dialog_int (parent, title, filters, starting_dir, type, TRUE);
+}
 
 gboolean
 show_session_error (GtkWindow *parent,
@@ -651,7 +703,7 @@ gnc_file_query_save (GtkWindow *parent, gboolean can_cancel)
 static gboolean
 gnc_post_file_open (GtkWindow *parent, const char * filename, gboolean is_readonly)
 {
-    QofSession *current_session, *new_session;
+    QofSession *new_session;
     QofBook *new_book;
     GList *invalid_account_names;
     gboolean uh_oh = FALSE;
@@ -726,7 +778,7 @@ RESTART:
     /* -- this code is almost identical in FileOpen and FileSaveAs -- */
     if (gnc_current_session_exist())
     {
-        current_session = gnc_get_current_session();
+        QofSession *current_session = gnc_get_current_session();
         gnc_hook_run(HOOK_BOOK_CLOSED, current_session);
         gnc_close_gui_component_by_session (current_session);
         gnc_state_save (current_session);
@@ -735,10 +787,11 @@ RESTART:
 
     /* load the accounts from the users datafile */
     /* but first, check to make sure we've got a session going. */
-    new_session = qof_session_new ();
+    new_session = qof_session_new (qof_book_new());
 
     // Begin the new session. If we are in read-only mode, ignore the locks.
-    qof_session_begin (new_session, newfile, is_readonly, FALSE, FALSE);
+    qof_session_begin (new_session, newfile,
+                       is_readonly ? SESSION_READ_ONLY : SESSION_NORMAL_OPEN);
     io_err = qof_session_get_error (new_session);
 
     if (ERR_BACKEND_BAD_URL == io_err)
@@ -752,6 +805,8 @@ RESTART:
 
         filename = gnc_file_dialog (parent, NULL, NULL, directory,
                                     GNC_FILE_DIALOG_OPEN);
+        /* Suppress trying to save the empty session. */
+        qof_book_mark_session_saved (qof_session_get_book (new_session));
         qof_session_destroy (new_session);
         new_session = NULL;
         g_free (directory);
@@ -818,11 +873,11 @@ RESTART:
         case RESPONSE_READONLY:
             is_readonly = TRUE;
             /* user told us to open readonly. We do ignore locks (just as before), but now also force the opening. */
-            qof_session_begin (new_session, newfile, is_readonly, FALSE, TRUE);
+            qof_session_begin (new_session, newfile, SESSION_READ_ONLY);
             break;
         case RESPONSE_OPEN:
             /* user told us to ignore locks. So ignore them. */
-            qof_session_begin (new_session, newfile, TRUE, FALSE, FALSE);
+            qof_session_begin (new_session, newfile, SESSION_BREAK_LOCK);
             break;
         default:
             /* Can't use the given file, so just create a new
@@ -841,7 +896,7 @@ RESTART:
             /* user told us to create a new database. Do it. We
                      * shouldn't have to worry about locking or clobbering,
                      * it's supposed to be new. */
-            qof_session_begin (new_session, newfile, FALSE, TRUE, FALSE);
+            qof_session_begin (new_session, newfile, SESSION_NEW_STORE);
         }
     }
 
@@ -1231,8 +1286,8 @@ gnc_file_do_export(GtkWindow *parent, const char * filename)
 
     /* -- this session code is NOT identical in FileOpen and FileSaveAs -- */
 
-    new_session = qof_session_new ();
-    qof_session_begin (new_session, newfile, FALSE, TRUE, FALSE);
+    new_session = qof_session_new (NULL);
+    qof_session_begin (new_session, newfile, SESSION_NEW_STORE);
 
     io_err = qof_session_get_error (new_session);
     /* If the file exists and would be clobbered, ask the user */
@@ -1251,7 +1306,7 @@ gnc_file_do_export(GtkWindow *parent, const char * filename)
         {
             return;
         }
-        qof_session_begin (new_session, newfile, FALSE, TRUE, TRUE);
+        qof_session_begin (new_session, newfile, SESSION_NEW_OVERWRITE);
     }
     /* if file appears to be locked, ask the user ... */
     if (ERR_BACKEND_LOCKED == io_err || ERR_BACKEND_READONLY == io_err)
@@ -1259,7 +1314,7 @@ gnc_file_do_export(GtkWindow *parent, const char * filename)
         if (!show_session_error (parent, io_err, newfile, GNC_FILE_DIALOG_EXPORT))
         {
             /* user told us to ignore locks. So ignore them. */
-            qof_session_begin (new_session, newfile, TRUE, FALSE, FALSE);
+            qof_session_begin (new_session, newfile, SESSION_BREAK_LOCK);
         }
     }
 
@@ -1296,6 +1351,9 @@ gnc_file_save (GtkWindow *parent)
     const char * newfile;
     QofSession *session;
     ENTER (" ");
+
+    if (!gnc_current_session_exist ())
+        return; //No session means nothing to save.
 
     /* hack alert -- Somehow make sure all in-progress edits get committed! */
 
@@ -1363,6 +1421,12 @@ gnc_file_save_as (GtkWindow *parent)
     gchar *last;
 
     ENTER(" ");
+
+    if (!gnc_current_session_exist ())
+    {
+        LEAVE("No Session.");
+        return;
+    }
 
     last = gnc_history_get_last();
     if ( last && gnc_uri_targets_local_fs (last))
@@ -1468,8 +1532,8 @@ gnc_file_do_save_as (GtkWindow *parent, const char* filename)
 
     save_in_progress++;
 
-    new_session = qof_session_new ();
-    qof_session_begin (new_session, newfile, FALSE, TRUE, FALSE);
+    new_session = qof_session_new (NULL);
+    qof_session_begin (new_session, newfile, SESSION_NEW_STORE);
 
     io_err = qof_session_get_error (new_session);
 
@@ -1495,15 +1559,15 @@ gnc_file_do_save_as (GtkWindow *parent, const char* filename)
             save_in_progress--;
             return;
         }
-        qof_session_begin (new_session, newfile, FALSE, TRUE, TRUE);
+        qof_session_begin (new_session, newfile, SESSION_NEW_OVERWRITE);
     }
     /* if file appears to be locked, ask the user ... */
     else if (ERR_BACKEND_LOCKED == io_err || ERR_BACKEND_READONLY == io_err)
     {
         if (!show_session_error (parent, io_err, newfile, GNC_FILE_DIALOG_SAVE))
         {
-            /* user told us to ignore locks. So ignore them. */
-            qof_session_begin (new_session, newfile, TRUE, FALSE, FALSE);
+            // User wants to replace the file.
+            qof_session_begin (new_session, newfile, SESSION_BREAK_LOCK);
         }
     }
 
@@ -1515,7 +1579,7 @@ gnc_file_do_save_as (GtkWindow *parent, const char* filename)
         if (!show_session_error (parent, io_err, newfile, GNC_FILE_DIALOG_SAVE))
         {
             /* user told us to create a new database. Do it. */
-            qof_session_begin (new_session, newfile, FALSE, TRUE, FALSE);
+            qof_session_begin (new_session, newfile, SESSION_NEW_STORE);
         }
     }
 

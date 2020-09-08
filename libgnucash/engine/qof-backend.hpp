@@ -185,26 +185,11 @@ public:
 /**
  *    Open the file or connect to the server.
  *    @param session The QofSession that will control the backend.
- *    @param book_id The book's string identifier.
- *    @param ignore_lock indicates whether the single-user lock on the backend
- *    should be cleared.  The typical GUI sequence leading to this is:
- *    (1) GUI attempts to open the backend by calling this routine with
- *    ignore_lock false.
- *    (2) If backend error'ed BACKEND_LOCK, then GUI asks user what to do.
- *    (3) if user answers 'break & enter' then this routine is called again with
- *    ignore_lock true.
- *    @param create indicates whether this routine should create a new
- *    'database', if it doesn't already exist. For example, for a file-backend,
- *    this would create the file, if it didn't already exist.  For an SQL
- *    backend, this would create the database (the schema) if it didn't already
- *    exist.  This flag is used to implement the 'SaveAs' GUI, where the user
- *    requests to save data to a new backend.
- *
- *    @param force works with create to force creating a new database even if
- *    one already exists at the same URI.
+ *    @param new_uri The location of the data store that the backend will use.
+ *    @param mode The session open mode. See qof_session_begin().
  */
-    virtual void session_begin(QofSession *session, const char* book_id,
-                               bool ignore_lock, bool create, bool force) = 0;
+    virtual void session_begin(QofSession *session, const char* new_uri,
+                               SessionOpenMode mode) = 0;
     virtual void session_end() = 0;
 /**
  *    Load the minimal set of application data needed for the application to be

@@ -376,25 +376,25 @@ error_handler<DbType::DBI_SQLITE> (dbi_conn conn, void* user_data)
 
 template <> void
 GncDbiBackend<DbType::DBI_SQLITE>::session_begin(QofSession* session,
-                                                 const char* book_id,
-                                                 bool ignore_lock,
-                                                 bool create, bool force)
+                                                 const char* new_uri,
+                                                 SessionOpenMode mode)
 {
     gboolean file_exists;
     PairVec options;
 
     g_return_if_fail (session != nullptr);
-    g_return_if_fail (book_id != nullptr);
+    g_return_if_fail (new_uri != nullptr);
 
     ENTER (" ");
 
     /* Remove uri type if present */
-    auto path = gnc_uri_get_path (book_id);
+    auto path = gnc_uri_get_path (new_uri);
     std::string filepath{path};
     g_free(path);
     GFileTest ftest = static_cast<decltype (ftest)> (
         G_FILE_TEST_IS_REGULAR | G_FILE_TEST_EXISTS) ;
     file_exists = g_file_test (filepath.c_str(), ftest);
+    bool create{mode == SESSION_NEW_STORE || mode == SESSION_NEW_OVERWRITE};
     if (!create && !file_exists)
     {
         set_error (ERR_FILEIO_FILE_NOT_FOUND);
@@ -407,12 +407,12 @@ GncDbiBackend<DbType::DBI_SQLITE>::session_begin(QofSession* session,
 
     if (create && file_exists)
     {
-        if (force)
+        if (mode == SESSION_NEW_OVERWRITE)
             g_unlink (filepath.c_str());
         else
         {
             set_error (ERR_BACKEND_STORE_EXISTS);
-            auto msg = "Might clobber, no force";
+            auto msg = "Might clobber, mode not SESSION_NEW_OVERWRITE";
             PWARN ("%s", msg);
             LEAVE("Error");
             return;
@@ -441,7 +441,7 @@ GncDbiBackend<DbType::DBI_SQLITE>::session_begin(QofSession* session,
     if (result < 0)
     {
         dbi_conn_close(conn);
-        PERR ("Unable to connect to %s: %d\n", book_id, result);
+        PERR ("Unable to connect to %s: %d\n", new_uri, result);
         set_error (ERR_BACKEND_BAD_URL);
         LEAVE("Error");
         return;
@@ -466,7 +466,7 @@ GncDbiBackend<DbType::DBI_SQLITE>::session_begin(QofSession* session,
     try
     {
         connect(new GncDbiSqlConnection(DbType::DBI_SQLITE,
-                                            this, conn, ignore_lock));
+                                            this, conn, mode));
     }
     catch (std::runtime_error& err)
     {
@@ -609,23 +609,59 @@ adjust_sql_options (dbi_conn connection)
     }
 }
 
+template <DbType Type> bool
+drop_database(dbi_conn conn, const UriStrings& uri)
+{
+    const char *root_db;
+    if (Type == DbType::DBI_PGSQL)
+    {
+        root_db = "template1";
+    }
+    else if (Type == DbType::DBI_MYSQL)
+    {
+        root_db = "mysql";
+    }
+    else
+    {
+        PERR ("Unknown database type, can't proceed.");
+        LEAVE("Error");
+        return false;
+    }
+    if (dbi_conn_select_db (conn, root_db) == -1)
+    {
+        PERR ("Failed to switch out of %s, drop will fail.",
+              uri.quote_dbname(Type).c_str());
+        LEAVE ("Error");
+        return false;
+    }
+    if (!dbi_conn_queryf (conn, "DROP DATABASE %s",
+                          uri.quote_dbname(Type).c_str()))
+    {
+        PERR ("Failed to drop database %s prior to recreating it."
+              "Proceeding would combine old and new data.",
+              uri.quote_dbname(Type).c_str());
+        LEAVE ("Error");
+        return false;
+    }
+    return true;
+}
 
 template <DbType Type> void
-GncDbiBackend<Type>::session_begin (QofSession* session, const char* book_id,
-                                    bool ignore_lock, bool create, bool force)
+GncDbiBackend<Type>::session_begin (QofSession* session, const char* new_uri,
+                                    SessionOpenMode mode)
 {
     GncDbiTestResult dbi_test_result = GNC_DBI_PASS;
     PairVec options;
 
     g_return_if_fail (session != nullptr);
-    g_return_if_fail (book_id != nullptr);
+    g_return_if_fail (new_uri != nullptr);
 
     ENTER (" ");
 
     /* Split the book-id
      * Format is protocol://username:password@hostname:port/dbname
      where username, password and port are optional) */
-    UriStrings uri(book_id);
+    UriStrings uri(new_uri);
 
     if (Type == DbType::DBI_PGSQL)
     {
@@ -641,6 +677,7 @@ GncDbiBackend<Type>::session_begin (QofSession* session, const char* book_id,
     }
     connect(nullptr);
 
+    bool create{mode == SESSION_NEW_STORE || mode == SESSION_NEW_OVERWRITE};
     auto conn = conn_setup(options, uri);
     if (conn == nullptr)
     {
@@ -660,43 +697,14 @@ GncDbiBackend<Type>::session_begin (QofSession* session, const char* book_id,
             LEAVE("Error");
             return;
         }
-        if (create && save_may_clobber_data<Type>(conn,
-                                                   uri.quote_dbname(Type)))
+        bool create = (mode == SESSION_NEW_STORE ||
+                       mode == SESSION_NEW_OVERWRITE);
+        if (create && save_may_clobber_data<Type>(conn, uri.quote_dbname(Type)))
         {
-            if (force)
+            if (mode == SESSION_NEW_OVERWRITE)
             {
-                // Drop DB
-                const char *root_db;
-                if (Type == DbType::DBI_PGSQL)
-                {
-                    root_db = "template1";
-                }
-                else if (Type == DbType::DBI_MYSQL)
-                {
-                    root_db = "mysql";
-                }
-                else
-                {
-                    PERR ("Unknown database type, can't proceed.");
-                    LEAVE("Error");
+                if (!drop_database<Type>(conn, uri))
                     return;
-                }
-                if (dbi_conn_select_db (conn, root_db) == -1)
-                {
-                    PERR ("Failed to switch out of %s, drop will fail.",
-                          uri.quote_dbname(Type).c_str());
-                    LEAVE ("Error");
-                    return;
-                }
-                if (!dbi_conn_queryf (conn, "DROP DATABASE %s",
-                                 uri.quote_dbname(Type).c_str()))
-                {
-                    PERR ("Failed to drop database %s prior to recreating it."
-                          "Proceeding would combine old and new data.",
-                           uri.quote_dbname(Type).c_str());
-                    LEAVE ("Error");
-                    return;
-                }
             }
             else
             {
@@ -764,7 +772,7 @@ GncDbiBackend<Type>::session_begin (QofSession* session, const char* book_id,
     connect(nullptr);
     try
     {
-        connect(new GncDbiSqlConnection(Type, this, conn, ignore_lock));
+        connect(new GncDbiSqlConnection(Type, this, conn, mode));
     }
     catch (std::runtime_error& err)
     {

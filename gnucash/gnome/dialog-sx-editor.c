@@ -1196,9 +1196,10 @@ gnc_ui_scheduled_xaction_editor_dialog_create (GtkWindow *parent,
     sxed->endCountSpin = GTK_ENTRY(gtk_builder_get_object (builder, "end_spin"));
     sxed->endRemainSpin = GTK_ENTRY(gtk_builder_get_object (builder, "remain_spin"));
 
-    // Set the style context for this dialog so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(sxed->dialog), "GncSxEditorDialog");
-    
+    // Set the name of this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(sxed->dialog), "gnc-id-sx-editor");
+    gnc_widget_style_context_add_class (GTK_WIDGET(sxed->dialog), "gnc-class-sx");
+   
     gtk_window_set_transient_for (GTK_WINDOW (sxed->dialog), parent);
 
     /* Setup the end-date GNC widget */
@@ -1828,7 +1829,7 @@ gnc_ui_sx_initialize (void)
     _sx_engine_event_handler_id = qof_event_register_handler(_sx_engine_event_handler, NULL);
 
     gnc_hook_add_dangler(HOOK_BOOK_OPENED,
-                         (GFunc)gnc_sx_sxsincelast_book_opened, NULL);
+                         (GFunc)gnc_sx_sxsincelast_book_opened, NULL, NULL);
 
     /* Add page to preferences page for Scheduled Transactions */
     /* The parameters are; glade file, items to add from glade file - last being the dialog, preference tab name */

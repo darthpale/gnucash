@@ -41,7 +41,6 @@ extern "C" void test_suite_qofsession ( void );
 extern void (*p_qof_session_load_backend) (QofSession *, const char * access_method);
 extern void (*p_qof_session_clear_error) (QofSession *);
 extern void (*p_qof_session_destroy_backend) (QofSession *);
-extern void (*p_qof_session_set_book_id) (QofSession *, const char * book_id);
 
 void init_static_qofsession_pointers (void);
 
@@ -70,7 +69,7 @@ percentage_fn ( const char* message, double percent )
 static void
 setup( Fixture *fixture, gconstpointer pData )
 {
-    fixture->session = qof_session_new();
+    fixture->session = qof_session_new (qof_book_new ());
     init_static_qofsession_pointers ();
     g_assert (p_qof_session_clear_error && p_qof_session_destroy_backend && p_qof_session_load_backend);
 }
@@ -87,14 +86,11 @@ teardown( Fixture *fixture, gconstpointer pData )
 static void
 test_qof_session_new_destroy (void)
 {
-    QofSession *session = NULL;
-    QofBook *book = NULL;
-
     g_test_message ("Test session initialization");
-    session = qof_session_new ();
+    auto session = qof_session_new (qof_book_new ());
     g_assert (session);
     g_assert (qof_session_get_book (session));
-    book = (QofBook*) qof_session_get_book (session);
+    auto book = qof_session_get_book (session);
     g_assert (book);
     g_assert (QOF_IS_BOOK (book));
     g_assert (!strlen (qof_session_get_url (session)));
@@ -137,10 +133,10 @@ struct QofMockLoadBackendProvider : public QofBackendProvider
 };
 
 bool
-QofMockLoadBackendProvider::type_check (const char* book_id)
+QofMockLoadBackendProvider::type_check (const char* uri)
 {
-    g_assert (book_id);
-    g_assert_cmpstr (book_id, ==, "my book");
+    g_assert (uri);
+    g_assert_cmpstr (uri, ==, "my book");
     load_backend_struct.check_data_type_called = true;
     return load_backend_struct.data_compatible;
 }
@@ -187,7 +183,7 @@ test_qof_session_load_backend (Fixture *fixture, gconstpointer pData)
     qof_backend_register_provider (std::move(prov));
     load_backend_struct.data_compatible = FALSE;
     load_backend_struct.check_data_type_called = FALSE;
-    p_qof_session_set_book_id (fixture->session, "my book");
+    p_qof_session_set_uri (fixture->session, "my book");
     p_qof_session_load_backend (fixture->session, "file");
     g_assert (load_backend_struct.check_data_type_called);
     g_assert_cmpint (qof_session_get_error (fixture->session), == , ERR_BACKEND_NO_HANDLER);
@@ -246,7 +242,7 @@ test_qof_session_load (Fixture *fixture, gconstpointer pData)
     QofBook *newbook = NULL;
 
     /* init */
-    p_qof_session_set_book_id (fixture->session, "my book");
+    p_qof_session_set_uri (fixture->session, "my book");
     be = g_new0 (QofBackend, 1);
     g_assert (be);
     qof_book_set_backend (qof_session_get_book (fixture->session), be);
@@ -283,25 +279,23 @@ static struct
 {
     QofBackend *be;
     QofSession *session;
-    const char *book_id;
+    const char *uri;
     gboolean backend_new_called;
     gboolean session_begin_called;
     gboolean produce_error;
 } session_begin_struct;
 
 static void
-mock_session_begin (QofBackend *be, QofSession *session, const char *book_id,
-                    gboolean ignore_lock, gboolean create, gboolean force)
+mock_session_begin (QofBackend *be, QofSession *session, const char *uri,
+                    SessionOpenMode mode)
 {
     g_assert (be);
     g_assert (be == session_begin_struct.be);
     g_assert (session);
     g_assert (session == session_begin_struct.session);
-    g_assert (book_id);
-    g_assert_cmpstr (book_id, == , session_begin_struct.book_id);
-    g_assert (ignore_lock);
-    g_assert (!create);
-    g_assert (force);
+    g_assert (uri);
+    g_assert_cmpstr (uri, == , session_begin_struct.uri);
+    g_assert (mode == SESSION_BREAK_LOCK);
     if (session_begin_struct.produce_error)
     {
         qof_backend_set_error (be, ERR_BACKEND_DATA_CORRUPT);
@@ -318,9 +312,9 @@ struct QofMockSessBackendProvider : public QofBackendProvider
 };
 
 bool
-QofMockSessBackendProvider::type_check (const char* book_id)
+QofMockSessBackendProvider::type_check (const char* uri)
 {
-    g_assert (book_id);
+    g_assert (uri);
     return true;
 }
 
@@ -340,28 +334,25 @@ QofMockSessBackendProvider::create_backend (void)
 static void
 test_qof_session_begin (Fixture *fixture, gconstpointer pData)
 {
-    gboolean ignore_lock, create, force;
     QofBackend *be = NULL;
 
     /* setup */
-    ignore_lock = TRUE;
-    create = FALSE;
-    force = TRUE;
+    SessionOpenMode mode{SESSION_BREAK_LOCK};
 
     be = g_new0 (QofBackend, 1);
     g_assert (be);
     g_assert_cmpint (get_providers().size(), == , 0);
 
     /* run tests */
-    g_test_message ("Test when book_id is set backend is not changed");
+    g_test_message ("Test when uri is set backend is not changed");
     qof_book_set_backend (qof_session_get_book (fixture->session), be);
-    p_qof_session_set_book_id (fixture->session, "my book");
-    qof_session_begin (fixture->session, "my book", ignore_lock, create, force);
+    p_qof_session_set_uri (fixture->session, "my book");
+    qof_session_begin (fixture->session, "my book", mode);
     g_assert (qof_book_get_backend (qof_session_get_book (fixture->session)) == be);
 
-    g_test_message ("Test when session book_id is not set and book_id passed is null backend is not changed");
-    p_qof_session_set_book_id (fixture->session, NULL);
-    qof_session_begin (fixture->session, NULL, ignore_lock, create, force);
+    g_test_message ("Test when session uri is not set and uri passed is null backend is not changed");
+    p_qof_session_set_uri (fixture->session, NULL);
+    qof_session_begin (fixture->session, NULL, mode);
     g_assert (qof_book_get_backend (qof_session_get_book (fixture->session)) == be);
 
     g_test_message ("Test default access_method parsing");
@@ -369,20 +360,20 @@ test_qof_session_begin (Fixture *fixture, gconstpointer pData)
      * parse access_method as 'file' and try to find backend
      * as there is no backend registered error will be raised
      */
-    qof_session_begin (fixture->session, "default_should_be_file", ignore_lock, create, force);
+    qof_session_begin (fixture->session, "default_should_be_file", mode);
     g_assert (qof_book_get_backend (qof_session_get_book (fixture->session)) == NULL);
     g_assert (!strlen (qof_session_get_url (fixture->session)));
     g_assert_cmpint (qof_session_get_error (fixture->session), == , ERR_BACKEND_NO_HANDLER);
 
     g_test_message ("Test access_method parsing");
-    qof_session_begin (fixture->session, "postgres://localhost:8080", ignore_lock, create, force);
+    qof_session_begin (fixture->session, "postgres://localhost:8080", mode);
     g_assert (qof_book_get_backend (qof_session_get_book (fixture->session)) == NULL);
     g_assert (!strlen (qof_session_get_url (fixture->session)));
     g_assert_cmpint (qof_session_get_error (fixture->session), == , ERR_BACKEND_NO_HANDLER);
 
     g_test_message ("Test with valid backend returned and session begin set; error is produced");
     session_begin_struct.session = fixture->session;
-    session_begin_struct.book_id = "postgres://localhost:8080";
+    session_begin_struct.uri = "postgres://localhost:8080";
     session_begin_struct.backend_new_called = FALSE;
     session_begin_struct.session_begin_called = FALSE;
     session_begin_struct.produce_error = TRUE;
@@ -390,7 +381,7 @@ test_qof_session_begin (Fixture *fixture, gconstpointer pData)
                                                                   "postgres"));
     qof_backend_register_provider (std::move(prov));
 
-    qof_session_begin (fixture->session, "postgres://localhost:8080", ignore_lock, create, force);
+    qof_session_begin (fixture->session, "postgres://localhost:8080", mode);
     g_assert (qof_book_get_backend (qof_session_get_book (fixture->session)));
     g_assert (session_begin_struct.be == qof_book_get_backend (qof_session_get_book (fixture->session)));
     g_assert (session_begin_struct.backend_new_called == TRUE);
@@ -420,7 +411,7 @@ static struct
     QofBackend *be;
     QofBook *book;
     QofSession *session;
-    const char *book_id;
+    const char *uri;
     gboolean sync_called;
     gboolean backend_new_called;
     gboolean session_begin_called;
@@ -548,14 +539,14 @@ test_qof_session_end (Fixture *fixture, gconstpointer pData)
 {
     QofBackend *be = NULL;
 
-    g_test_message ("Test backend is closed, errors cleared and book_id removed");
+    g_test_message ("Test backend is closed, errors cleared and uri removed");
     be = g_new0 (QofBackend, 1);
     g_assert (be);
     be->session_end = mock_session_end;
     be->last_err = ERR_BACKEND_DATA_CORRUPT;
     be->error_msg = g_strdup("push any error");
     qof_book_set_backend (qof_session_get_book (fixture->session), be);
-    p_qof_session_set_book_id (fixture->session, "my book");
+    p_qof_session_set_uri (fixture->session, "my book");
     session_end_struct.called = FALSE;
     session_end_struct.be = be;
     qof_session_end (fixture->session);
@@ -584,11 +575,9 @@ mock_export (QofBackend *be, QofBook *book)
 static void
 test_qof_session_export (Fixture *fixture, gconstpointer pData)
 {
-    QofSession *real_session = NULL;
-    QofBook *tmp_book = NULL, *real_book = NULL;
     QofBackend *be = NULL;
 
-    real_session = qof_session_new ();
+    auto real_session = qof_session_new (qof_book_new ());
     g_assert (real_session);
 
     g_test_message ("Test null checks");
@@ -596,9 +585,9 @@ test_qof_session_export (Fixture *fixture, gconstpointer pData)
     g_assert (!qof_session_export (fixture->session, NULL, percentage_fn));
 
     g_test_message ("Test with backend not set");
-    tmp_book = qof_session_get_book (fixture->session);
+    auto tmp_book = qof_session_get_book (fixture->session);
     g_assert (tmp_book);
-    be = qof_book_get_backend (tmp_book);
+    auto be = qof_book_get_backend (tmp_book);
     g_assert (!be);
     g_assert (!qof_session_export (fixture->session, real_session, percentage_fn));
 
@@ -616,7 +605,7 @@ test_qof_session_export (Fixture *fixture, gconstpointer pData)
     qof_backend_set_error (be, ERR_BACKEND_DATA_CORRUPT);
     qof_backend_set_message (be, "push any error");
     session_export_struct.called = FALSE;
-    real_book = qof_session_get_book (real_session);
+    auto real_book = qof_session_get_book (real_session);
     g_assert (real_book);
     session_export_struct.be = be;
     session_export_struct.book = real_book;
@@ -641,7 +630,7 @@ test_qof_session_swap_data (Fixture *fixture, gconstpointer pData)
 
     /* init */
     g_assert (fixture->session);
-    session2 = qof_session_new ();
+    auto session2 = qof_session_new (qof_book_new ());
     g_assert (session2);
     g_assert (fixture->session != session2);
     be1 = g_new0 (QofBackend, 1);

@@ -77,6 +77,7 @@ typedef struct
 
     /* The editor whose status we reflect on the sheet */
     GtkWidget *editor;
+    gulong preedit_length;
 
     gboolean is_popup;
     gboolean show_popup;
@@ -90,6 +91,7 @@ typedef struct
     PopupGetWidth    popup_get_width;
     gpointer         popup_user_data;
     gint             popup_returned_height;
+    gulong           popup_height_signal_id;
 
     GtkBorder        padding;
     GtkBorder        margin;

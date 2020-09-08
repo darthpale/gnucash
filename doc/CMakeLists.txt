@@ -1,34 +1,21 @@
 add_subdirectory(examples)
 
 set(doc_DATA
-  README.francais
-  README.german
-  README-ca.win32-bin.txt
-  README-de.win32-bin.txt
-  README-fr.win32-bin.txt
-  README-hr.win32-bin.txt
-  README-it.win32-bin.txt
-  README-lv.win32-bin.txt
-  README-nl.win32-bin.txt
-  README-zh_CN.win32-bin.txt
-  README-zh_TW.win32-bin.txt
-  README.win32-bin.txt
-  guile-hackers.txt
-  projects.html
   gtk-3.0.css
 )
 
 set(doc_noinst_DATA
         CMakeLists.txt gnc-fq-dump.1 gnc-fq-helper.1 gnucash.1.in
-        README.HBCI README.OFX README.translator.txt tip_of_the_day.list.c
-        TRANSLATION_HOWTO)
+        gnucash-cli.1.in tip_of_the_day.list.c README.txt)
 
 install(FILES ${doc_DATA} DESTINATION  ${CMAKE_INSTALL_DOCDIR})
 
 set_local_dist(doc_DIST_local ${doc_DATA} ${doc_noinst_DATA})
 set(doc_DIST ${doc_DIST_local} ${examples_DIST} PARENT_SCOPE)
 
-file(COPY ${doc_DATA} DESTINATION ${DATADIR_BUILD}/doc/gnucash)
+foreach(doc_file ${doc_DATA})
+    configure_file(${doc_file} ${DATADIR_BUILD}/doc/gnucash/${doc_file} COPYONLY)
+endforeach()
 
 # Generate the tip of the day file.
 
@@ -54,16 +41,18 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tip_of_the_day.list DESTINATION  ${CMA
 file(COPY ${CMAKE_CURRENT_BINARY_DIR}/tip_of_the_day.list
   DESTINATION ${DATADIR_BUILD}/gnucash)
 
-add_custom_command(OUTPUT gnucash.1
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gnucash.1.in ${VCS_INFO_FILE}
-  COMMAND ${CMAKE_COMMAND} -D SRC=${CMAKE_CURRENT_SOURCE_DIR}/gnucash.1.in
-                           -D DST=gnucash.1
-                           -D VCS_INFO_FILE=${VCS_INFO_FILE}
-                           -D DATADIR_BUILD=${DATADIR_BUILD}
-                           -D SRC_DIR=${CMAKE_SOURCE_DIR}
-                           -P ${CMAKE_SOURCE_DIR}/cmake/configure-manpage.cmake
-  )
-add_custom_target(gnucash-manpage DEPENDS gnucash.1)
-dist_add_generated (${BUILDING_FROM_VCS} gnucash.1)
+foreach (manpage gnucash gnucash-cli)
+    add_custom_command(OUTPUT ${manpage}.1
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${manpage}.1.in ${VCS_INFO_FILE}
+    COMMAND ${CMAKE_COMMAND} -D SRC=${CMAKE_CURRENT_SOURCE_DIR}/${manpage}.1.in
+                            -D DST=${manpage}.1
+                            -D VCS_INFO_FILE=${VCS_INFO_FILE}
+                            -D DATADIR_BUILD=${DATADIR_BUILD}
+                            -D SRC_DIR=${CMAKE_SOURCE_DIR}
+                            -P ${CMAKE_SOURCE_DIR}/cmake/configure-manpage.cmake
+    )
+    add_custom_target(${manpage}-manpage DEPENDS ${manpage}.1)
+    dist_add_generated (${BUILDING_FROM_VCS} ${manpage}.1)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gnucash.1 DESTINATION  ${CMAKE_INSTALL_MANDIR}/man1)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gnucash.1 DESTINATION  ${CMAKE_INSTALL_MANDIR}/man1)
+endforeach()

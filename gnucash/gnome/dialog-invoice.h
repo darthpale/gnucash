@@ -67,6 +67,11 @@ GNCSearchWindow * gnc_invoice_search (GtkWindow *parent, GncInvoice *start, GncO
 
 void gnc_business_call_owner_report (GtkWindow* parent, GncOwner *owner, Account *acc);
 
+void gnc_business_call_owner_report_with_enddate (GtkWindow* parent,
+                                                  GncOwner *owner,
+                                                  Account *acc,
+                                                  time64 enddate);
+
 void gnc_invoice_window_sort (InvoiceWindow *iw, invoice_sort_type_t sort_code);
 
 GtkWidget * gnc_invoice_window_create_summary_bar (InvoiceWindow *iw);
@@ -76,6 +81,12 @@ void gnc_invoice_window_changed (InvoiceWindow *iw, GtkWidget *window);;
 gchar *gnc_invoice_get_help (InvoiceWindow *iw);
 
 gchar *gnc_invoice_get_title (InvoiceWindow *iw);
+
+GncInvoice * gnc_invoice_window_get_invoice (InvoiceWindow *iw);
+
+GtkWidget * gnc_invoice_window_get_assoc_link_button (InvoiceWindow *iw);
+
+void gnc_invoice_update_assoc_for_window (GncInvoice *invoice, const gchar *uri);
 
 GncInvoiceType gnc_invoice_get_type_from_window(InvoiceWindow *iw);
 
@@ -109,6 +120,10 @@ void gnc_invoice_window_blankCB (GtkWidget *widget, gpointer data);
 void gnc_invoice_window_duplicateCB (GtkWidget *widget, gpointer data);
 void gnc_invoice_window_payment_cb (GtkWindow *parent, gpointer data);
 void gnc_invoice_window_report_owner_cb (GtkWindow *parent, gpointer data);
+
+void gnc_invoice_window_save_document_layout_to_user_state (InvoiceWindow *iw);
+void gnc_invoice_window_reset_document_layout_and_clear_user_state (InvoiceWindow *iw);
+gboolean gnc_invoice_window_document_has_user_state (InvoiceWindow *iw);
 
 void gnc_invoice_window_entryUpCB (GtkWidget *widget, gpointer data);
 void gnc_invoice_window_entryDownCB (GtkWidget *widget, gpointer data);

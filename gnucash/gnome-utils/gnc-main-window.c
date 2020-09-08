@@ -48,9 +48,11 @@
 #include "dialog-reset-warnings.h"
 #include "dialog-transfer.h"
 #include "dialog-utils.h"
+#include "engine-helpers.h"
 #include "file-utils.h"
 #include "gnc-component-manager.h"
 #include "gnc-engine.h"
+#include "gnc-features.h"
 #include "gnc-file.h"
 #include "gnc-filepath-utils.h"
 #include "gnc-gkeyfile-utils.h"
@@ -178,6 +180,8 @@ static void gnc_main_window_cmd_help_about (GtkAction *action, GncMainWindow *wi
 static void do_popup_menu(GncPluginPage *page, GdkEventButton *event);
 static GtkWidget *gnc_main_window_get_statusbar (GncWindow *window_in);
 static void statusbar_notification_lastmodified(void);
+static void gnc_main_window_update_tab_position (gpointer prefs, gchar *pref, gpointer user_data);
+static void gnc_main_window_remove_prefs (GncMainWindow *window);
 
 #ifdef MAC_INTEGRATION
 static void gnc_quartz_shutdown(GtkosxApplication *theApp, gpointer data);
@@ -1145,6 +1149,11 @@ gnc_main_window_all_finish_pending (void)
             return FALSE;
         }
     }
+    if (gnc_gui_refresh_suspended ())
+    {
+        gnc_warning_dialog (NULL, "%s", "An operation is still pending, wait for it to complete before quitting ");
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -1385,6 +1394,9 @@ gnc_main_window_quit(GncMainWindow *window)
     }
     if (do_shutdown)
     {
+        /* remove the preference callbacks from the main window */
+        window->window_quitting = TRUE;
+        gnc_main_window_remove_prefs (window);
         g_timeout_add(250, gnc_main_window_timed_quit, NULL);
         return TRUE;
     }
@@ -1495,7 +1507,7 @@ gnc_main_window_generate_title (GncMainWindow *window)
     QofBook *book;
     gboolean immutable;
     gchar *filename = NULL;
-    const gchar *book_id = NULL;
+    const gchar *uri = NULL;
     const gchar *dirty = "";
     const gchar *readonly_text = NULL;
     gchar *readonly;
@@ -1503,7 +1515,7 @@ gnc_main_window_generate_title (GncMainWindow *window)
 
     if (gnc_current_session_exist())
     {
-        book_id = qof_session_get_url (gnc_get_current_session ());
+        uri = qof_session_get_url (gnc_get_current_session ());
         book = gnc_get_current_book();
         if (qof_book_session_not_saved (book))
             dirty = "*";
@@ -1518,15 +1530,15 @@ gnc_main_window_generate_title (GncMainWindow *window)
                ? g_strdup_printf(" %s", readonly_text)
                : g_strdup("");
 
-    if (!book_id || g_strcmp0 (book_id, "") == 0)
+    if (!uri || g_strcmp0 (uri, "") == 0)
         filename = g_strdup(_("Unsaved Book"));
     else
     {
-        if (gnc_uri_targets_local_fs (book_id))
+        if (gnc_uri_targets_local_fs (uri))
         {
             /* The filename is a true file.
              * The Gnome HIG 2.0 recommends only the file name (no path) be used. (p15) */
-            gchar *path = gnc_uri_get_path ( book_id );
+            gchar *path = gnc_uri_get_path ( uri );
             filename = g_path_get_basename ( path );
             g_free ( path );
         }
@@ -1534,7 +1546,7 @@ gnc_main_window_generate_title (GncMainWindow *window)
         {
             /* The filename is composed of database connection parameters.
              * For this we will show access_method://username@database[:port] */
-            filename = gnc_uri_normalize_uri (book_id, FALSE);
+            filename = gnc_uri_normalize_uri (uri, FALSE);
         }
     }
 
@@ -1650,22 +1662,22 @@ static gboolean statusbar_notification_off(gpointer user_data_unused)
 static gchar *generate_statusbar_lastmodified_message()
 {
     gchar *message = NULL;
-    const gchar *book_id = NULL;
+    const gchar *uri = NULL;
 
     if (gnc_current_session_exist())
     {
-        book_id = qof_session_get_url (gnc_get_current_session ());
+        uri = qof_session_get_url (gnc_get_current_session ());
     }
 
-    if (!(book_id && strlen (book_id)))
+    if (!(uri && strlen (uri)))
         return NULL;
     else
     {
-        if (gnc_uri_targets_local_fs (book_id))
+        if (gnc_uri_targets_local_fs (uri))
         {
 #ifdef HAVE_SYS_STAT_H
             /* The filename is a true file. */
-            gchar *filepath = gnc_uri_get_path ( book_id );
+            gchar *filepath = gnc_uri_get_path ( uri );
             gchar *filename = g_path_get_basename ( filepath );
             {
                 // Access the mtime information through stat(2)
@@ -2540,9 +2552,9 @@ gnc_main_window_class_init (GncMainWindowClass *klass)
                            NULL);
 
     gnc_hook_add_dangler(HOOK_BOOK_SAVED,
-                         (GFunc)gnc_main_window_update_all_titles, NULL);
+                         (GFunc)gnc_main_window_update_all_titles, NULL, NULL);
     gnc_hook_add_dangler(HOOK_BOOK_OPENED,
-                         (GFunc)gnc_main_window_attach_to_book, NULL);
+                         (GFunc)gnc_main_window_attach_to_book, NULL, NULL);
 
 }
 
@@ -2566,8 +2578,8 @@ gnc_main_window_init (GncMainWindow *window, void *data)
     priv->merged_actions_table =
         g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 
-    // Set the style context for this widget so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(window), "GncMainWindow");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(window), "gnc-id-main-window");
 
     priv->event_handler_id =
         qof_event_register_handler(gnc_main_window_event_handler, window);
@@ -2614,6 +2626,63 @@ gnc_main_window_finalize (GObject *object)
 
 
 static void
+gnc_main_window_remove_prefs (GncMainWindow *window)
+{
+    // remove the registered preference callbacks setup in this file.
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_COLOR,
+                                 gnc_main_window_update_tab_color,
+                                 window);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_SHOW_CLOSE_BUTTON,
+                                 gnc_main_window_update_tab_close,
+                                 NULL);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_WIDTH,
+                                 gnc_main_window_update_tab_width,
+                                 NULL);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_POSITION_TOP,
+                                 gnc_main_window_update_tab_position,
+                                 window);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_POSITION_BOTTOM,
+                                 gnc_main_window_update_tab_position,
+                                 window);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_POSITION_LEFT,
+                                 gnc_main_window_update_tab_position,
+                                 window);
+
+    gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
+                                 GNC_PREF_TAB_POSITION_RIGHT,
+                                 gnc_main_window_update_tab_position,
+                                 window);
+
+    // remove the registered negative color preference callback.
+    if (gnc_prefs_get_reg_negative_color_pref_id() > 0 && window->window_quitting)
+    {
+        gnc_prefs_remove_cb_by_id (GNC_PREFS_GROUP_GENERAL,
+                                   gnc_prefs_get_reg_negative_color_pref_id());
+        gnc_prefs_set_reg_negative_color_pref_id (0);
+    }
+
+    // remove the registered auto_raise_lists preference callback.
+    if (gnc_prefs_get_reg_auto_raise_lists_id() > 0 && window->window_quitting)
+    {
+        gnc_prefs_remove_cb_by_id (GNC_PREFS_GROUP_GENERAL_REGISTER,
+                                   gnc_prefs_get_reg_auto_raise_lists_id());
+        gnc_prefs_set_reg_auto_raise_lists_id (0);
+    }
+}
+
+
+static void
 gnc_main_window_destroy (GtkWidget *widget)
 {
     GncMainWindow *window;
@@ -2643,10 +2712,8 @@ gnc_main_window_destroy (GtkWidget *widget)
         /* Update the "Windows" menu in all other windows */
         gnc_main_window_update_all_menu_items();
 #endif
-        gnc_prefs_remove_cb_by_func (GNC_PREFS_GROUP_GENERAL,
-                                     GNC_PREF_TAB_COLOR,
-                                     gnc_main_window_update_tab_color,
-                                     window);
+        /* remove the preference callbacks from the main window */
+        gnc_main_window_remove_prefs (window);
 
         qof_event_unregister_handler(priv->event_handler_id);
         priv->event_handler_id = 0;
@@ -2689,6 +2756,8 @@ gnc_main_window_new (void)
     }
     active_windows = g_list_append (active_windows, window);
     gnc_main_window_update_title(window);
+    window->window_quitting = FALSE;
+    window->just_plugin_prefs = FALSE;
 #ifdef MAC_INTEGRATION
     gnc_quartz_set_menu(window);
 #else
@@ -2748,17 +2817,20 @@ gnc_main_window_connect (GncMainWindow *window,
 {
     GncMainWindowPrivate *priv;
     GtkNotebook *notebook;
+    gint current_position = -1;
 
     page->window = GTK_WIDGET(window);
     priv = GNC_MAIN_WINDOW_GET_PRIVATE(window);
     notebook = GTK_NOTEBOOK (priv->notebook);
-    priv->installed_pages = g_list_append (priv->installed_pages, page);
+    current_position = g_list_index (priv->installed_pages, priv->current_page) + 1;
+    priv->installed_pages = g_list_insert (priv->installed_pages, page, current_position);
     priv->usage_order = g_list_prepend (priv->usage_order, page);
-    gtk_notebook_append_page_menu (notebook, page->notebook_page,
-                                   tab_hbox, menu_label);
+    gtk_notebook_insert_page_menu (notebook, page->notebook_page,
+                                   tab_hbox, menu_label, current_position);
     gtk_notebook_set_tab_reorderable (notebook, page->notebook_page, TRUE);
     gnc_plugin_page_inserted (page);
-    gtk_notebook_set_current_page (notebook, -1);
+    gtk_notebook_set_current_page (notebook, current_position);
+
     if (GNC_PLUGIN_PAGE_GET_CLASS(page)->window_changed)
         (GNC_PLUGIN_PAGE_GET_CLASS(page)->window_changed)(page, GTK_WIDGET(window));
     g_signal_emit (window, main_window_signals[PAGE_ADDED], 0, page);
@@ -2948,6 +3020,10 @@ gnc_main_window_open_page (GncMainWindow *window,
     gtk_widget_show (label);
 
     tab_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+
+    if (g_strcmp0 (gnc_plugin_page_get_plugin_name (page), "GncPluginPageAccountTree") == 0)
+        gtk_widget_set_name (GTK_WIDGET(tab_hbox), "gnc-id-account-page-tab-box");
+
     gtk_box_set_homogeneous (GTK_BOX (tab_hbox), FALSE);
     gtk_widget_show (tab_hbox);
 
@@ -2956,11 +3032,7 @@ gnc_main_window_open_page (GncMainWindow *window,
         image = gtk_image_new_from_icon_name (icon, GTK_ICON_SIZE_MENU);
         gtk_widget_show (image);
         gtk_box_pack_start (GTK_BOX (tab_hbox), image, FALSE, FALSE, 0);
-#if GTK_CHECK_VERSION(3,12,0)
         gtk_widget_set_margin_start (GTK_WIDGET(image), 5);
-#else
-        gtk_widget_set_margin_left (GTK_WIDGET(image), 5);
-#endif
         gtk_box_pack_start (GTK_BOX (tab_hbox), label, TRUE, TRUE, 0);
     }
     else
@@ -3010,11 +3082,7 @@ gnc_main_window_open_page (GncMainWindow *window,
                                   G_CALLBACK(gnc_main_window_close_page), page);
 
         gtk_box_pack_start (GTK_BOX (tab_hbox), close_button, FALSE, FALSE, 0);
-#if GTK_CHECK_VERSION(3,12,0)
         gtk_widget_set_margin_end (GTK_WIDGET(close_button), 5);
-#else
-        gtk_widget_set_margin_right (GTK_WIDGET(close_button), 5);
-#endif
         g_object_set_data (G_OBJECT (page), PLUGIN_PAGE_CLOSE_BUTTON, close_button);
     }
 
@@ -3069,6 +3137,18 @@ gnc_main_window_close_page (GncPluginPage *page)
     priv = GNC_MAIN_WINDOW_GET_PRIVATE(window);
     if (priv->installed_pages == NULL)
     {
+        GncPluginManager *manager = gnc_plugin_manager_get ();
+        GList *plugins = gnc_plugin_manager_get_plugins (manager);
+
+        /* remove only the preference callbacks from the window plugins */
+        window->just_plugin_prefs = TRUE;
+        g_list_foreach (plugins, gnc_main_window_remove_plugin, window);
+        window->just_plugin_prefs = FALSE;
+        g_list_free (plugins);
+
+        /* remove the preference callbacks from the main window */
+        gnc_main_window_remove_prefs (window);
+
         if (g_list_length(active_windows) > 1)
         {
             gtk_widget_destroy(GTK_WIDGET(window));
@@ -3422,95 +3502,6 @@ gnc_main_window_init_menu_updaters (GncMainWindow *window)
                       G_CALLBACK (gnc_main_window_edit_menu_hide_cb), window);
 }
 
-/* CS: This callback functions will set the statusbar text to the
- * "tooltip" property of the currently selected GtkAction.
- *
- * This code is directly copied from gtk+/test/testmerge.c.
- * Thanks to (L)GPL! */
-typedef struct _ActionStatus ActionStatus;
-struct _ActionStatus
-{
-    GtkAction *action;
-    GtkWidget *statusbar;
-};
-
-static void
-action_status_destroy (gpointer data)
-{
-    ActionStatus *action_status = data;
-
-    g_object_unref (action_status->action);
-    g_object_unref (action_status->statusbar);
-
-    g_free (action_status);
-}
-
-static void
-set_tip (GtkWidget *widget)
-{
-    ActionStatus *data;
-    gchar *tooltip;
-
-    data = g_object_get_data (G_OBJECT (widget), "action-status");
-
-    if (data)
-    {
-        g_object_get (data->action, "tooltip", &tooltip, NULL);
-
-        gtk_statusbar_push (GTK_STATUSBAR (data->statusbar), 0,
-                            tooltip ? tooltip : "");
-
-        g_free (tooltip);
-    }
-}
-
-static void
-unset_tip (GtkWidget *widget)
-{
-    ActionStatus *data;
-
-    data = g_object_get_data (G_OBJECT (widget), "action-status");
-
-    if (data)
-        gtk_statusbar_pop (GTK_STATUSBAR (data->statusbar), 0);
-}
-
-static void
-connect_proxy (GtkUIManager *merge,
-               GtkAction    *action,
-               GtkWidget    *proxy,
-               GtkWidget    *statusbar)
-{
-    if (GTK_IS_MENU_ITEM (proxy))
-    {
-        ActionStatus *data;
-
-        data = g_object_get_data (G_OBJECT (proxy), "action-status");
-        if (data)
-        {
-            g_object_unref (data->action);
-            g_object_unref (data->statusbar);
-
-            data->action = g_object_ref (action);
-            data->statusbar = g_object_ref (statusbar);
-        }
-        else
-        {
-            data = g_new0 (ActionStatus, 1);
-
-            data->action = g_object_ref (action);
-            data->statusbar = g_object_ref (statusbar);
-
-            g_object_set_data_full (G_OBJECT (proxy), "action-status",
-                                    data, action_status_destroy);
-
-            g_signal_connect (proxy, "select",  G_CALLBACK (set_tip), NULL);
-            g_signal_connect (proxy, "deselect", G_CALLBACK (unset_tip), NULL);
-        }
-    }
-}
-/* CS: end copied code from gtk+/test/testmerge.c */
-
 static void
 gnc_main_window_window_menu (GncMainWindow *window)
 {
@@ -3600,6 +3591,7 @@ gnc_main_window_setup_window (GncMainWindow *window)
                         FALSE, TRUE, 0);
 
     priv->progressbar = gtk_progress_bar_new ();
+    gtk_progress_bar_set_show_text (GTK_PROGRESS_BAR(priv->progressbar), TRUE);
     gtk_progress_bar_set_text(GTK_PROGRESS_BAR(priv->progressbar), " ");
     gtk_widget_show (priv->progressbar);
     gtk_box_pack_start (GTK_BOX (priv->statusbar), priv->progressbar,
@@ -3632,10 +3624,10 @@ gnc_main_window_setup_window (GncMainWindow *window)
 
     g_signal_connect (G_OBJECT (window->ui_merge), "add_widget",
                       G_CALLBACK (gnc_main_window_add_widget), window);
-    /* Use the "connect-proxy" signal for tooltip display in the
-       status bar */
+
+    /* Use the "connect-proxy" signal for tooltip display in the status bar */
     g_signal_connect (G_OBJECT (window->ui_merge), "connect-proxy",
-                      G_CALLBACK (connect_proxy), priv->statusbar);
+                      G_CALLBACK (gnc_window_connect_proxy), priv->statusbar);
 
     filename = gnc_filepath_locate_ui_file("gnc-main-window-ui.xml");
 
@@ -3718,14 +3710,17 @@ gnc_quartz_shutdown (GtkosxApplication *theApp, gpointer data)
 {
     /* Do Nothing. It's too late. */
 }
-/* Should quit responds to NSApplicationBlockTermination; returning
- * TRUE means "don't terminate", FALSE means "do terminate".
+/* Should quit responds to NSApplicationBlockTermination; returning TRUE means
+ * "don't terminate", FALSE means "do terminate". gnc_main_window_quit() queues
+ * a timer that starts an orderly shutdown in 250ms and if we tell macOS it's OK
+ * to quit GnuCash gets terminated instead of doing its orderly shutdown,
+ * leaving the book locked.
  */
 static gboolean
 gnc_quartz_should_quit (GtkosxApplication *theApp, GncMainWindow *window)
 {
     if (gnc_main_window_all_finish_pending())
-        return gnc_main_window_quit (window);
+        gnc_main_window_quit (window);
     return TRUE;
 }
 
@@ -4052,6 +4047,44 @@ gnc_book_options_dialog_close_cb(GNCOptionWin * optionwin,
 
     gnc_options_dialog_destroy(optionwin);
     gnc_option_db_destroy(options);
+}
+
+/** Calls gnc_book_option_num_field_source_change to initiate registered
+ * callbacks when num_field_source book option changes so that
+ * registers/reports can update themselves; sets feature flag */
+void
+gnc_book_option_num_field_source_change_cb (gboolean num_action)
+{
+    gnc_suspend_gui_refresh ();
+    if (num_action)
+    {
+        /* Set a feature flag in the book for use of the split action field as number.
+         * This will prevent older GnuCash versions that don't support this feature
+         * from opening this file. */
+        gnc_features_set_used (gnc_get_current_book(),
+                               GNC_FEATURE_NUM_FIELD_SOURCE);
+    }
+    gnc_book_option_num_field_source_change (num_action);
+    gnc_resume_gui_refresh ();
+}
+
+/** Calls gnc_book_option_book_currency_selected to initiate registered
+ * callbacks when currency accounting book option changes to book-currency so
+ * that registers/reports can update themselves; sets feature flag */
+void
+gnc_book_option_book_currency_selected_cb (gboolean use_book_currency)
+{
+    gnc_suspend_gui_refresh ();
+    if (use_book_currency)
+    {
+        /* Set a feature flag in the book for use of book currency. This will
+         * prevent older GnuCash versions that don't support this feature from
+         * opening this file. */
+        gnc_features_set_used (gnc_get_current_book(),
+                               GNC_FEATURE_BOOK_CURRENCY);
+    }
+    gnc_book_option_book_currency_selected (use_book_currency);
+    gnc_resume_gui_refresh ();
 }
 
 static gboolean
@@ -4719,7 +4752,6 @@ do_popup_menu(GncPluginPage *page, GdkEventButton *event)
 {
     GtkUIManager *ui_merge;
     GtkWidget *menu;
-    int button, event_time;
 
     g_return_if_fail(GNC_IS_PLUGIN_PAGE(page));
 
@@ -4737,22 +4769,8 @@ do_popup_menu(GncPluginPage *page, GdkEventButton *event)
         LEAVE("no menu");
         return;
     }
-
-#if GTK_CHECK_VERSION(3,22,0)
     gtk_menu_popup_at_pointer (GTK_MENU(menu), (GdkEvent *) event);
-#else
-    if (event)
-    {
-        button = event->button;
-        event_time = event->time;
-    }
-    else
-    {
-        button = 0;
-        event_time = gtk_get_current_event_time ();
-    }
-    gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL, button, event_time);
-#endif
+
     LEAVE(" ");
 }
 

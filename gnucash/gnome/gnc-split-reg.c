@@ -37,6 +37,8 @@
 #include "qof.h"
 #include "SX-book.h"
 #include "dialog-account.h"
+#include "dialog-assoc.h"
+#include "dialog-assoc-utils.h"
 #include "dialog-sx-editor.h"
 #include "dialog-sx-from-trans.h"
 #include "gnc-component-manager.h"
@@ -56,6 +58,7 @@
 #include "gnucash-sheet.h"
 #include "gnucash-register.h"
 #include "table-allgui.h"
+#include "gnc-state.h"
 
 #include "dialog-utils.h"
 
@@ -113,8 +116,10 @@ void gsr_default_paste_txn_handler( GNCSplitReg *w, gpointer ud );
 void gsr_default_void_txn_handler ( GNCSplitReg *w, gpointer ud );
 void gsr_default_unvoid_txn_handler ( GNCSplitReg *w, gpointer ud );
 void gsr_default_reverse_txn_handler ( GNCSplitReg *w, gpointer ud );
-void gsr_default_associate_handler ( GNCSplitReg *w, gboolean uri_is_file );
-void gsr_default_execassociated_handler ( GNCSplitReg *w, gpointer ud );
+void gsr_default_associate_handler ( GNCSplitReg *w );
+void gsr_default_associate_open_handler ( GNCSplitReg *w );
+void gsr_default_associate_remove_handler ( GNCSplitReg *w );
+static void gsr_default_associate_from_sheet_handler ( GNCSplitReg *w );
 
 static void gsr_emit_simple_signal       ( GNCSplitReg *gsr, const char *sigName );
 static void gsr_emit_help_changed        ( GnucashRegister *reg, gpointer user_data );
@@ -402,6 +407,53 @@ gsr_setup_table( GNCSplitReg *gsr )
     LEAVE(" ");
 }
 
+static void
+gsr_move_sort_and_filter_to_state_file (GNCSplitReg *gsr, GKeyFile* state_file, const gchar *state_section)
+{
+    GNCLedgerDisplayType ledger_type;
+    GNCLedgerDisplay* ld;
+
+    // Look for any old kvp entries and add them to .gcm file
+    ledger_type = gnc_ledger_display_type (gsr->ledger);
+
+    // General ledger should already be using .gcm file
+    if ((ledger_type == LD_SINGLE) || (ledger_type == LD_SUBACCOUNT))
+    {
+        Account *leader = gnc_ledger_display_leader (gsr->ledger);
+        const char* kvp_filter = NULL;
+        const char* kvp_sort_order = NULL;
+        gboolean kvp_sort_reversed = FALSE;
+
+        kvp_filter = xaccAccountGetFilter (leader);
+        if (kvp_filter)
+        {
+            gchar *temp_filter_text = g_strdup (kvp_filter);
+            temp_filter_text = g_strdelimit (temp_filter_text, ",",
+                                             ';'); // make it conform to .gcm file list
+            g_key_file_set_string (state_file, state_section, KEY_PAGE_FILTER,
+                                   temp_filter_text);
+            g_free (temp_filter_text);
+            xaccAccountSetFilter (leader, NULL);
+        }
+
+        kvp_sort_order = xaccAccountGetSortOrder (leader);
+        if (kvp_sort_order)
+        {
+            g_key_file_set_string (state_file, state_section,
+                                   KEY_PAGE_SORT, kvp_sort_order);
+            xaccAccountSetSortOrder (leader, NULL);
+        }
+
+        kvp_sort_reversed = xaccAccountGetSortReversed (leader);
+        if (kvp_sort_reversed)
+        {
+            g_key_file_set_boolean (state_file, state_section,
+                                    KEY_PAGE_SORT_REV, kvp_sort_reversed);
+            xaccAccountSetSortReversed (leader, FALSE);
+        }
+    }
+}
+
 static
 void
 gsr_create_table( GNCSplitReg *gsr )
@@ -412,11 +464,16 @@ gsr_create_table( GNCSplitReg *gsr )
     Account * account = gnc_ledger_display_leader(gsr->ledger);
     const GncGUID * guid = xaccAccountGetGUID(account);
     gchar guidstr[GUID_ENCODING_LENGTH+1];
-    gchar *state_section = NULL;
-    guid_to_string_buff(guid, guidstr);
-    state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
+    GKeyFile* state_file = gnc_state_get_current();
+    gchar *register_state_section;
+
+    guid_to_string_buff (guid, guidstr);
+
+    register_state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
 
     ENTER("gsr=%p", gsr);
+
+    sr = gnc_ledger_display_get_split_register (gsr->ledger);
 
     gnc_ledger_display_set_user_data( gsr->ledger, (gpointer)gsr );
     gnc_ledger_display_set_handlers( gsr->ledger,
@@ -425,11 +482,16 @@ gsr_create_table( GNCSplitReg *gsr )
 
     /* FIXME: We'd really rather pass this down... */
     sr = gnc_ledger_display_get_split_register( gsr->ledger );
-    register_widget = gnucash_register_new( sr->table, state_section );
+    register_widget = gnucash_register_new( sr->table, register_state_section );
     gsr->reg = GNUCASH_REGISTER( register_widget );
-    g_free (state_section);
+
     gtk_box_pack_start (GTK_BOX (gsr), GTK_WIDGET(gsr->reg), TRUE, TRUE, 0);
     gnucash_sheet_set_window (gnucash_register_get_sheet (gsr->reg), gsr->window);
+
+    // setup the callback for when the associate cell clicked on
+    gnucash_register_set_open_assoc_cb (gsr->reg,
+        (GFunc)gsr_default_associate_from_sheet_handler, gsr);
+
     gtk_widget_show ( GTK_WIDGET(gsr->reg) );
     g_signal_connect (gsr->reg, "activate_cursor",
                       G_CALLBACK(gnc_split_reg_record_cb), gsr);
@@ -440,6 +502,9 @@ gsr_create_table( GNCSplitReg *gsr )
     g_signal_connect (gsr->reg, "show_popup_menu",
                       G_CALLBACK(gsr_emit_show_popup_menu), gsr);
 
+    gsr_move_sort_and_filter_to_state_file (gsr, state_file, register_state_section);
+
+    g_free (register_state_section);
     LEAVE(" ");
 }
 
@@ -720,20 +785,13 @@ static void
 gnc_split_reg_ld_destroy( GNCLedgerDisplay *ledger )
 {
     GNCSplitReg *gsr = gnc_ledger_display_get_user_data( ledger );
-
     Account * account = gnc_ledger_display_leader(ledger);
     const GncGUID * guid = xaccAccountGetGUID(account);
     gchar guidstr[GUID_ENCODING_LENGTH+1];
     gchar *state_section;
-    gchar *acct_fullname;
     guid_to_string_buff(guid, guidstr);
 
     state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
-
-    if (g_strcmp0(guidstr, "00000000000000000000000000000000") == 0)
-        acct_fullname = g_strdup(_("General Journal"));
-    else
-        acct_fullname = gnc_account_get_full_name(account);
 
     if (gsr)
     {
@@ -742,7 +800,7 @@ gnc_split_reg_ld_destroy( GNCLedgerDisplay *ledger )
         reg = gnc_ledger_display_get_split_register (ledger);
 
         if (reg && reg->table)
-            gnc_table_save_state (reg->table, state_section, acct_fullname);
+            gnc_table_save_state (reg->table, state_section);
 
         /*
          * Don't destroy the window here any more.  The register no longer
@@ -750,7 +808,6 @@ gnc_split_reg_ld_destroy( GNCLedgerDisplay *ledger )
          */
     }
     g_free (state_section);
-    g_free (acct_fullname);
 
     gnc_ledger_display_set_user_data (ledger, NULL);
     g_object_unref (gsr);
@@ -1207,240 +1264,16 @@ gnc_split_reg_reinitialize_trans_cb(GtkWidget *widget, gpointer data)
     gsr_emit_simple_signal( gsr, "reinit_ent" );
 }
 
-static void
-gsr_default_associate_handler_file (GNCSplitReg *gsr, Transaction *trans, gboolean have_uri)
-{
-    GtkWidget *dialog;
-    gint       response;
-    gboolean   path_head_set = FALSE;
-    gchar     *path_head = gnc_prefs_get_string (GNC_PREFS_GROUP_GENERAL, "assoc-head");
-
-    dialog = gtk_file_chooser_dialog_new (_("Associate File with Transaction"),
-                                     GTK_WINDOW(gsr->window),
-                                     GTK_FILE_CHOOSER_ACTION_OPEN,
-                                     _("_Remove"), GTK_RESPONSE_REJECT,
-                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
-                                     _("_OK"), GTK_RESPONSE_ACCEPT,
-                                     NULL);
-
-    gtk_file_chooser_set_local_only (GTK_FILE_CHOOSER(dialog), FALSE);
-
-    path_head_set = (path_head && *path_head != '\0'); // not default entry
-
-    if (have_uri)
-    {
-        gchar *file_uri = NULL;
-        const gchar *uri = xaccTransGetAssociation (trans);
-        gchar *scheme = gnc_uri_get_scheme (uri);
-
-        if (!scheme) // relative path
-        {
-            gchar *file_path = NULL;
-            if (path_head_set) // not default entry
-                file_path = gnc_file_path_absolute (gnc_uri_get_path (path_head), uri);
-            else
-                file_path = gnc_file_path_absolute (NULL, uri);
-
-            file_uri = gnc_uri_create_uri ("file", NULL, 0, NULL, NULL, file_path);
-            g_free (file_path);
-        }
-
-        if (g_strcmp0 (scheme, "file") == 0) // absolute path
-            file_uri = g_strdup (uri);
-
-        if (file_uri)
-        {
-            GtkWidget *label;
-            gchar *file_uri_u = g_uri_unescape_string (file_uri, NULL);
-            gchar *filename = gnc_uri_get_path (file_uri_u);
-            gchar *uri_label;
-
-#ifdef G_OS_WIN32 // make path look like a traditional windows path
-            filename = g_strdelimit (filename, "/", '\\');
-#endif
-            uri_label = g_strconcat (_("Existing Association is '"), filename, "'", NULL);
-
-            PINFO("Path head: '%s', URI: '%s', Filename: '%s'", path_head, uri, filename);
-            label = gtk_label_new (uri_label);
-            gtk_file_chooser_set_extra_widget (GTK_FILE_CHOOSER(dialog), label);
-            gtk_label_set_ellipsize (GTK_LABEL(label), PANGO_ELLIPSIZE_START);
-
-            // Set the style context for this label so it can be easily manipulated with css
-            gnc_widget_style_context_add_class (GTK_WIDGET(label), "gnc-class-highlight");
-            gtk_file_chooser_set_uri (GTK_FILE_CHOOSER(dialog), file_uri);
-
-            g_free (uri_label);
-            g_free (filename);
-            g_free (file_uri_u);
-            g_free (file_uri);
-        }
-    }
-    response = gtk_dialog_run (GTK_DIALOG (dialog));
-
-    if (response == GTK_RESPONSE_REJECT)
-        xaccTransSetAssociation (trans, "");
-
-    if (response == GTK_RESPONSE_ACCEPT)
-    {
-        gchar *dialog_uri = gtk_file_chooser_get_uri (GTK_FILE_CHOOSER (dialog));
-
-        // prior to 3.5, assoc-head could be with or without a trailing '/'
-        if (path_head_set && !g_str_has_suffix (path_head, "/"))
-        {
-            gchar *folder_with_slash = g_strconcat (path_head, "/", NULL);
-            g_free (path_head);
-            path_head = g_strdup (folder_with_slash);
-            g_free (folder_with_slash);
-
-            if (!gnc_prefs_set_string (GNC_PREFS_GROUP_GENERAL, "assoc-head", path_head))
-                PINFO("Failed to save preference at %s, %s with %s",
-                       GNC_PREFS_GROUP_GENERAL, "assoc-head", path_head);
-        }
-
-        PINFO("Dialog File URI: '%s', Path head: '%s'", dialog_uri, path_head);
-
-        // relative paths do not start with a '/'
-        if (path_head_set && g_str_has_prefix (dialog_uri, path_head))
-        {
-            const gchar *part = dialog_uri + strlen (path_head);
-
-            PINFO("Dialog URI: '%s', Part: '%s'", dialog_uri, part);
-            xaccTransSetAssociation (trans, part);
-        }
-        else
-        {
-            PINFO("Dialog URI: '%s'", dialog_uri);
-            xaccTransSetAssociation (trans, dialog_uri);
-        }
-        g_free (dialog_uri);
-    }
-
-    gtk_widget_destroy (dialog);
-}
-
-static void
-gsr_default_associate_handler_location_ok_cb (GtkEditable *editable, gpointer user_data)
-{
-    GtkWidget *ok_button = user_data;
-    gboolean have_scheme = FALSE;
-    gchar *text = gtk_editable_get_chars (editable, 0, -1);
-    gchar *scheme;
-
-    if (text && *text != '\0')
-    {
-        scheme = gnc_uri_get_scheme (text);
-        if (scheme)
-            have_scheme = TRUE;
-        g_free (scheme);
-    }
-    gtk_widget_set_sensitive (ok_button, have_scheme);
-    g_free (text);
-}
-
-static void
-gsr_default_associate_handler_location (GNCSplitReg *gsr, Transaction *trans, gboolean have_uri)
-{
-    GtkWidget *dialog, *entry, *label, *content_area, *ok_button;
-    gint response;
-
-    dialog = gtk_dialog_new_with_buttons (_("Associate Location with Transaction"),
-                                     GTK_WINDOW(gsr->window),
-                                     GTK_DIALOG_MODAL,
-                                     _("_Remove"), GTK_RESPONSE_REJECT,
-                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
-                                     // OK Button added below
-                                     NULL);
-
-    ok_button = gtk_dialog_add_button (GTK_DIALOG(dialog), _("_OK"), GTK_RESPONSE_ACCEPT);
-    gtk_widget_set_sensitive (ok_button, FALSE);
-
-    content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-
-    // add the entry text
-    entry = gtk_entry_new ();
-    gtk_entry_set_width_chars (GTK_ENTRY (entry), 80);
-    gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
-
-    g_signal_connect (entry, "changed",
-        G_CALLBACK(gsr_default_associate_handler_location_ok_cb), ok_button);
-
-    // add a label and set entry text if required
-    if (have_uri)
-    {
-        label = gtk_label_new (_("Amend URL"));
-        gtk_entry_set_text (GTK_ENTRY (entry), xaccTransGetAssociation (trans));
-    }
-    else
-        label = gtk_label_new (_("Enter URL like https://www.gnucash.org"));
-
-    // pack label and entry to content area
-    gnc_label_set_alignment (label, 0.0, 0.5);
-    gtk_container_add (GTK_CONTAINER (content_area), label);
-    gtk_container_add (GTK_CONTAINER (content_area), entry);
-
-    // set spacings
-    gtk_container_set_border_width (GTK_CONTAINER (dialog), 12);
-
-    // set the default response
-    gtk_dialog_set_default_response (GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
-
-    gtk_widget_show_all (dialog);
-
-    // run the dialog
-    response = gtk_dialog_run (GTK_DIALOG (dialog));
-
-    if (response == GTK_RESPONSE_REJECT)
-        xaccTransSetAssociation (trans, "");
-
-    if (response == GTK_RESPONSE_ACCEPT)
-    {
-        const gchar *dialog_uri = gtk_entry_get_text (GTK_ENTRY (entry));
-
-        DEBUG("Location URI: %s\n", dialog_uri);
-        xaccTransSetAssociation (trans, dialog_uri);
-    }
-    gtk_widget_destroy (dialog);
-}
-
-static gchar*
-gsr_convert_associate_uri (Transaction *trans)
-{
-    const gchar *uri = xaccTransGetAssociation (trans); // get the existing uri
-    const gchar *part = NULL;
-
-    if (!uri)
-        return NULL;
-
-    if (g_str_has_prefix (uri, "file:") && !g_str_has_prefix (uri,"file://"))
-    {
-        // fix an error when storing relative paths in version earlier than 3.5
-        // relative paths are stored without a leading "/" and in native form
-        if (g_str_has_prefix (uri,"file:/") && !g_str_has_prefix (uri,"file://"))
-            part = uri + strlen ("file:/");
-        else if (g_str_has_prefix (uri,"file:") && !g_str_has_prefix (uri,"file://"))
-            part = uri + strlen ("file:");
-
-        if (part)
-        {
-            xaccTransSetAssociation (trans, part);
-            return g_strdup (part);
-        }
-    }
-    return g_strdup (uri);
-}
-
-/**
- * Associates a URI with the current transaction.
- **/
+/* Edit the associated link for the current transaction. */
 void
-gsr_default_associate_handler (GNCSplitReg *gsr, gboolean uri_is_file)
+gsr_default_associate_handler (GNCSplitReg *gsr)
 {
     SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
     Split *split = gnc_split_register_get_current_split (reg);
     Transaction *trans;
     CursorClass cursor_class;
-    const gchar *uri;
-    gboolean have_uri = FALSE;
+    gchar *uri;
+    gchar *ret_uri;
 
     /* get the current split based on cursor position */
     if (!split)
@@ -1454,46 +1287,31 @@ gsr_default_associate_handler (GNCSplitReg *gsr, gboolean uri_is_file)
 
     if (cursor_class == CURSOR_CLASS_NONE)
         return;
-
-    // fix an earlier error when storing relative paths in version 3.3
-    uri = gsr_convert_associate_uri (trans);
 
     if (is_trans_readonly_and_warn (GTK_WINDOW(gsr->window), trans))
         return;
 
-    // Check for uri is empty or NULL
-    if (uri && *uri != '\0')
-    {
-        gchar *scheme = gnc_uri_get_scheme (uri);
-        have_uri = TRUE;
+    // fix an earlier error when storing relative paths before version 3.5
+    uri = gnc_assoc_convert_trans_associate_uri (trans, gsr->read_only);
 
-        if (!scheme || g_strcmp0 (scheme, "file") == 0) // use the correct dialog
-            uri_is_file = TRUE;
-        else
-            uri_is_file = FALSE;
+    ret_uri = gnc_assoc_get_uri_dialog (GTK_WINDOW(gsr->window), _("Change a Transaction Association"), uri);
 
-        g_free (scheme);
-    }
+    if (ret_uri && g_strcmp0 (uri, ret_uri) != 0)
+        xaccTransSetAssociation (trans, ret_uri);
 
-    if (uri_is_file == TRUE)
-        gsr_default_associate_handler_file (gsr, trans, have_uri);
-    else
-        gsr_default_associate_handler_location (gsr, trans, have_uri);
+    g_free (ret_uri);
+    g_free (uri);
 }
 
-/**
- * Executes the associated link with the current transaction.
- **/
+/* Opens the associated link for the current transaction. */
 void
-gsr_default_execassociated_handler (GNCSplitReg *gsr, gpointer data)
+gsr_default_associate_open_handler (GNCSplitReg *gsr)
 {
     CursorClass cursor_class;
     SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
     Transaction *trans;
     Split *split = gnc_split_register_get_current_split (reg);
-    const char *uri;
-    const char *run_uri = NULL;
-    gchar *uri_scheme;
+    gchar *uri;
 
     /* get the current split based on cursor position */
     if (!split)
@@ -1508,49 +1326,64 @@ gsr_default_execassociated_handler (GNCSplitReg *gsr, gpointer data)
     if (cursor_class == CURSOR_CLASS_NONE)
         return;
 
-#ifdef DUMP_FUNCTIONS
-    if (qof_log_check (log_module, QOF_LOG_DEBUG))
-        xaccTransDump (trans, "ExecAssociated");
-#endif
+    // fix an earlier error when storing relative paths before version 3.5
+    uri = gnc_assoc_convert_trans_associate_uri (trans, gsr->read_only);
 
-    // fix an earlier error when storing relative paths in version 3.3
-    uri = gsr_convert_associate_uri (trans);
+    gnc_assoc_open_uri (GTK_WINDOW (gsr->window), uri);
+    g_free (uri);
+}
 
-    if (!uri && g_strcmp0 (uri, "") == 0)
-        gnc_error_dialog (GTK_WINDOW (gsr->window), "%s", _("This transaction is not associated with a URI."));
-    else
+/* Removes the associated link for the current transaction. */
+void
+gsr_default_associate_remove_handler (GNCSplitReg *gsr)
+{
+    CursorClass cursor_class;
+    SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
+    Transaction *trans;
+    Split *split = gnc_split_register_get_current_split (reg);
+
+    /* get the current split based on cursor position */
+    if (!split)
     {
-        gchar *scheme = gnc_uri_get_scheme (uri);
-
-        if (!scheme) // relative path
-        {
-            gchar *path_head = gnc_prefs_get_string (GNC_PREFS_GROUP_GENERAL, "assoc-head");
-            gchar *file_path;
-
-            if (path_head && g_strcmp0 (path_head, "") != 0) // not default entry
-                file_path = gnc_file_path_absolute (gnc_uri_get_path (path_head), uri);
-            else
-                file_path = gnc_file_path_absolute (NULL, uri);
-
-            run_uri = gnc_uri_create_uri ("file", NULL, 0, NULL, NULL, file_path);
-            g_free (path_head);
-            g_free (file_path);
-        }
-
-        if (!run_uri)
-            run_uri = g_strdup (uri);
-
-        uri_scheme = gnc_uri_get_scheme (run_uri);
-
-        if (uri_scheme) // make sure we have a scheme entry
-        {
-            gnc_launch_assoc (GTK_WINDOW (gsr->window), run_uri);
-            g_free (uri_scheme);
-        }
-        else
-            gnc_error_dialog (GTK_WINDOW (gsr->window), "%s", _("This transaction is not associated with a valid URI."));
+        gnc_split_register_cancel_cursor_split_changes (reg);
+        return;
     }
-    return;
+
+    trans = xaccSplitGetParent (split);
+    cursor_class = gnc_split_register_get_current_cursor_class (reg);
+
+    if (cursor_class == CURSOR_CLASS_NONE)
+        return;
+
+    if (is_trans_readonly_and_warn (GTK_WINDOW(gsr->window), trans))
+        return;
+
+    xaccTransSetAssociation (trans, "");
+}
+
+static void
+gsr_default_associate_from_sheet_handler (GNCSplitReg *gsr)
+{
+    CursorClass cursor_class;
+    SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
+    Transaction *trans;
+    Split *split;
+    gchar *uri = NULL;
+
+    /* get the current split based on cursor position */
+    split = gnc_split_register_get_current_split (reg);
+    if (!split)
+        return;
+
+    trans = xaccSplitGetParent (split);
+
+    // fix an earlier error when storing relative paths before version 3.5
+    uri = gnc_assoc_convert_trans_associate_uri (trans, gsr->read_only);
+
+    if (uri)
+        gnc_assoc_open_uri (GTK_WINDOW (gsr->window), uri);
+
+    g_free (uri);
 }
 
 void
@@ -1862,6 +1695,32 @@ gnc_split_reg_expand_trans_toolbar_cb (GtkWidget *widget, gpointer data)
     gsr_emit_simple_signal( gsr, "expand_ent" );
 }
 
+gboolean
+gnc_split_reg_clear_filter_for_split (GNCSplitReg *gsr, Split *split)
+{
+    VirtualCellLocation vcell_loc;
+    SplitRegister *reg;
+
+    if (!gsr)
+        return FALSE;
+
+    reg = gnc_ledger_display_get_split_register (gsr->ledger);
+
+    if (!gnc_split_register_get_split_virt_loc (reg, split, &vcell_loc))
+    {
+        gint response = gnc_ok_cancel_dialog (GTK_WINDOW(gsr->window),
+             GTK_RESPONSE_CANCEL,
+             (_("Target split is currently hidden in this register.\n\n%s\n\n"
+                "Select OK to temporarily clear filter and proceed,\n"
+                "otherwise the last active cell will be selected.")),
+             gsr->filter_text);
+
+        if (response == GTK_RESPONSE_OK)
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /**
  * move the cursor to the split, if present in register
 **/
@@ -1885,7 +1744,6 @@ gnc_split_reg_jump_to_split(GNCSplitReg *gsr, Split *split)
 
     gnc_ledger_display_refresh( gsr->ledger );
 }
-
 
 /**
  * Move the cursor to the split in the non-blank amount column.
@@ -2622,10 +2480,11 @@ gnc_split_reg_determine_read_only( GNCSplitReg *gsr )
         reg = gnc_ledger_display_get_split_register( gsr->ledger );
         if(reg->mismatched_commodities)
         {
-            string = _("This account may not be edited because its"
-                       " subaccounts have mismatched commodities or currencies."
-                       "You need to open each account individually to "
-                       "edit transactions.");
+            string = _("The transactions of this account may not be edited "
+                       "because its subaccounts have mismatched commodities "
+                       "or currencies.\n"
+                       "You need to open each account individually to edit "
+                       "transactions.");
         }
         else
         {
@@ -2636,19 +2495,19 @@ gnc_split_reg_determine_read_only( GNCSplitReg *gsr )
                 return;
 
             case PLACEHOLDER_THIS:
-                string = _("This account may not be edited. If you want "
-                                 "to edit transactions in this register, please "
-                                 "open the account options and turn off the "
-                                 "placeholder checkbox.");
+                string = _("The transactions of this account may not be edited.\n"
+                           "If you want to edit transactions in this register, "
+                           "please open the account options and turn off the "
+                           "placeholder checkbox.");
                 break;
 
             default:
-                string = _("One of the sub-accounts selected may not be "
-                                 "edited. If you want to edit transactions in "
-                                 "this register, please open the sub-account "
-                                 "options and turn off the placeholder checkbox. "
-                                 "You may also open an individual account instead "
-                                 "of a set of accounts.");
+                string = _("The transactions in one of the selected "
+                           "sub-accounts may not be edited.\n"
+                           "If you want to edit transactions in this register, please open "
+                           "the sub-account options and turn off the placeholder checkbox.\n"
+                           "You may also open an individual account instead "
+                           "of a set of accounts.");
                 break;
             }
         }

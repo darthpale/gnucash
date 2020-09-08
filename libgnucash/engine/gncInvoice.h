@@ -108,6 +108,7 @@ void gncInvoiceSetDatePosted (GncInvoice *invoice, time64 date);
 void gncInvoiceSetTerms (GncInvoice *invoice, GncBillTerm *terms);
 void gncInvoiceSetBillingID (GncInvoice *invoice, const char *billing_id);
 void gncInvoiceSetNotes (GncInvoice *invoice, const char *notes);
+void gncInvoiceSetAssociation (GncInvoice *invoice, const char *assoc);
 void gncInvoiceSetCurrency (GncInvoice *invoice, gnc_commodity *currency);
 void gncInvoiceSetActive (GncInvoice *invoice, gboolean active);
 void gncInvoiceSetIsCreditNote (GncInvoice *invoice, gboolean credit_note);
@@ -143,6 +144,7 @@ time64 gncInvoiceGetDateDue (const GncInvoice *invoice);
 GncBillTerm * gncInvoiceGetTerms (const GncInvoice *invoice);
 const char * gncInvoiceGetBillingID (const GncInvoice *invoice);
 const char * gncInvoiceGetNotes (const GncInvoice *invoice);
+const char * gncInvoiceGetAssociation (const GncInvoice *invoice);
 GncOwnerType gncInvoiceGetOwnerType (const GncInvoice *invoice);
 GList * gncInvoiceGetTypeListForOwnerType (const GncOwnerType type);
 GncInvoiceType gncInvoiceGetType (const GncInvoice *invoice);
@@ -170,7 +172,7 @@ AccountValueList *gncInvoiceGetTotalTaxList (GncInvoice *invoice);
 
 typedef GList EntryList;
 EntryList * gncInvoiceGetEntries (GncInvoice *invoice);
-GNCPrice * gncInvoiceGetPrice(GncInvoice *invoice, gnc_commodity* commodity);
+GNCPrice * gncInvoiceGetPrice (GncInvoice *invoice, gnc_commodity* commodity);
 
 /** Depending on the invoice type, invoices have a different effect
  *  on the balance. Customer invoices increase the balance, while
@@ -291,6 +293,7 @@ gboolean gncInvoiceIsPaid (const GncInvoice *invoice);
 #define INVOICE_TERMS       "terms"
 #define INVOICE_BILLINGID   "billing_id"
 #define INVOICE_NOTES       "notes"
+#define INVOICE_ASSOCIATION "assoc"
 #define INVOICE_ACC         "account"
 #define INVOICE_POST_TXN    "posted_txn"
 #define INVOICE_POST_LOT    "posted_lot"
@@ -304,14 +307,14 @@ gboolean gncInvoiceIsPaid (const GncInvoice *invoice);
 #define INVOICE_FROM_LOT    "invoice-from-lot"
 #define INVOICE_FROM_TXN    "invoice-from-txn"
 
-QofBook *gncInvoiceGetBook(GncInvoice *x);
+QofBook *gncInvoiceGetBook (GncInvoice *x);
 
 /** deprecated functions */
-#define gncInvoiceGetGUID(x) qof_instance_get_guid(QOF_INSTANCE(x))
-#define gncInvoiceRetGUID(x) (x ? *(qof_instance_get_guid(QOF_INSTANCE(x))) : *(guid_null()))
+#define gncInvoiceGetGUID(x) qof_instance_get_guid (QOF_INSTANCE(x))
+#define gncInvoiceRetGUID(x) (x ? *(qof_instance_get_guid (QOF_INSTANCE(x))) : *(guid_null()))
 
 /** Test support function used by test-dbi-business-stuff.c */
-gboolean gncInvoiceEqual(const GncInvoice *a, const GncInvoice *b);
+gboolean gncInvoiceEqual (const GncInvoice *a, const GncInvoice *b);
 
 #endif /* GNC_INVOICE_H_ */
 /** @} */

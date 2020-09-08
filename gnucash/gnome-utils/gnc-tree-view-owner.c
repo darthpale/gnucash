@@ -110,7 +110,7 @@ gnc_tree_view_owner_class_init (GncTreeViewOwnerClass *klass)
     o_class->finalize = gnc_tree_view_owner_finalize;
 
     gnc_hook_add_dangler(HOOK_CURRENCY_CHANGED,
-                         (GFunc)gtvo_currency_changed_cb, NULL);
+                         (GFunc)gtvo_currency_changed_cb, NULL, NULL);
 }
 
 /********************************************************************\
@@ -367,7 +367,7 @@ gnc_tree_view_owner_new (GncOwnerType owner_type)
     }
     /* Create our view */
     view = g_object_new (GNC_TYPE_TREE_VIEW_OWNER,
-                         "name", "owner_tree", NULL);
+                         "name", "gnc-id-owner-tree", NULL);
 
     priv = GNC_TREE_VIEW_OWNER_GET_PRIVATE(GNC_TREE_VIEW_OWNER (view));
 
@@ -1140,9 +1140,9 @@ gppot_filter_response_cb (GtkWidget *dialog,
     }
 
     /* Clean up and delete dialog */
-    gptemp = (gpointer *)fd->dialog;
+    gptemp = (gpointer)fd->dialog;
     g_atomic_pointer_compare_and_exchange(&gptemp,
-                                          dialog, NULL);
+                                          (gpointer)dialog, NULL);
     fd->dialog = gptemp;
     gtk_widget_destroy(dialog);
     LEAVE("");

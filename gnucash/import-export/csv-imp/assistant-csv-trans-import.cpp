@@ -64,6 +64,13 @@ extern "C"
 #include "gnc-tokenizer-fw.hpp"
 #include "gnc-tokenizer-csv.hpp"
 
+#include <algorithm>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <tuple>
+
 #include <gnc-locale-utils.hpp>
 #include <boost/locale.hpp>
 
@@ -459,8 +466,9 @@ CsvImpTransAssist::CsvImpTransAssist ()
     gnc_builder_add_from_file  (builder , "assistant-csv-trans-import.glade", "csv_transaction_assistant");
     csv_imp_asst = GTK_ASSISTANT(gtk_builder_get_object (builder, "csv_transaction_assistant"));
 
-    // Set the style context for this assistant so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(csv_imp_asst), "GncAssistTransImport");
+    // Set the name for this assistant so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(csv_imp_asst), "gnc-id-assistant-csv-transaction-import");
+    gnc_widget_style_context_add_class (GTK_WIDGET(csv_imp_asst), "gnc-class-imports");
 
     /* Enable buttons on all page. */
     gtk_assistant_set_page_complete (csv_imp_asst,
@@ -563,6 +571,7 @@ CsvImpTransAssist::CsvImpTransAssist ()
         acct_selector = gnc_account_sel_new();
         auto account_hbox = GTK_WIDGET(gtk_builder_get_object (builder, "account_hbox"));
         gtk_box_pack_start (GTK_BOX(account_hbox), acct_selector, TRUE, TRUE, 6);
+        gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(acct_selector), true);
         gtk_widget_show (acct_selector);
 
         g_signal_connect(G_OBJECT(acct_selector), "account_sel_changed",
@@ -577,6 +586,7 @@ CsvImpTransAssist::CsvImpTransAssist ()
 
         auto encoding_container = GTK_CONTAINER(gtk_builder_get_object (builder, "encoding_container"));
         gtk_container_add (encoding_container, GTK_WIDGET(encselector));
+        gtk_widget_set_hexpand (GTK_WIDGET(encselector), true);
         gtk_widget_show_all (GTK_WIDGET(encoding_container));
 
         /* The instructions label and image */
@@ -594,6 +604,7 @@ CsvImpTransAssist::CsvImpTransAssist ()
         /* Add it to the assistant. */
         auto date_format_container = GTK_CONTAINER(gtk_builder_get_object (builder, "date_format_container"));
         gtk_container_add (date_format_container, GTK_WIDGET(date_format_combo));
+        gtk_widget_set_hexpand (GTK_WIDGET(date_format_combo), true);
         gtk_widget_show_all (GTK_WIDGET(date_format_container));
 
         /* Add in the currency format combo box and hook it up to an event handler. */
@@ -610,6 +621,7 @@ CsvImpTransAssist::CsvImpTransAssist ()
         /* Add it to the assistant. */
         auto currency_format_container = GTK_CONTAINER(gtk_builder_get_object (builder, "currency_format_container"));
         gtk_container_add (currency_format_container, GTK_WIDGET(currency_format_combo));
+        gtk_widget_set_hexpand (GTK_WIDGET(currency_format_combo), true);
         gtk_widget_show_all (GTK_WIDGET(currency_format_container));
 
         /* Connect the CSV/Fixed-Width radio button event handler. */
@@ -2054,6 +2066,12 @@ CsvImpTransAssist::assist_match_page_prepare ()
     gtk_assistant_add_action_widget (csv_imp_asst, help_button);
     g_signal_connect (help_button, "clicked",
                      G_CALLBACK(on_matcher_help_clicked), gnc_csv_importer_gui);
+
+    // align the help button on the left side
+    auto action_box = gtk_widget_get_parent (help_button);
+    gtk_widget_set_halign (GTK_WIDGET(action_box), GTK_ALIGN_FILL);  
+    gtk_widget_set_hexpand (GTK_WIDGET(action_box), TRUE);
+    gtk_box_set_child_packing (GTK_BOX(action_box), help_button, FALSE, FALSE, 0, GTK_PACK_START);
     gtk_widget_show (GTK_WIDGET(help_button));
 
     /* Copy all of the transactions to the importer GUI. */
@@ -2076,16 +2094,11 @@ CsvImpTransAssist::assist_summary_page_prepare ()
     gtk_assistant_remove_action_widget (csv_imp_asst, help_button);
     gtk_assistant_remove_action_widget (csv_imp_asst, cancel_button);
 
-    // FIXME Rather than passing a locale generator below we probably should set std::locale::global appropriately somewhere.
-    bl::generator gen;
-    gen.add_messages_path(gnc_path_get_localedir());
-    gen.add_messages_domain(PROJECT_NAME);
-
     auto text = std::string("<span size=\"medium\"><b>");
     try
     {
     /* Translators: {1} will be replaced with a filename */
-      text += (bl::format (bl::translate ("The transactions were imported from file '{1}'.")) % m_file_name).str(gnc_get_locale());
+      text += (bl::format (bl::translate ("The transactions were imported from file '{1}'.")) % m_file_name).str(gnc_get_boost_locale());
         text += "</b></span>";
     }
     catch (const bl::conv::conversion_error& err)

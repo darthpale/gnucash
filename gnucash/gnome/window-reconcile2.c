@@ -54,12 +54,11 @@
 #include "gnc-ui.h"
 #include "gnc-ui-balances.h"
 #include "gnc-window.h"
-#include "guile-util.h"
 #include "reconcile-view.h"
 #include "window-reconcile2.h"
+#include "Account.h"
 
 #define WINDOW_RECONCILE_CM_CLASS "window-reconcile"
-#define GNC_PREF_AUTO_INTEREST_TRANSFER "auto-interest-transfer"
 #define GNC_PREF_AUTO_CC_PAYMENT        "auto-cc-payment"
 #define GNC_PREF_ALWAYS_REC_TO_TODAY    "always-reconcile-to-today"
 
@@ -120,23 +119,6 @@ typedef struct _startRecnWindowData
     time64         date;            /* the interest xfer reconcile date        */
 } startRecnWindowData;
 
-
-/* Note: make sure to update the help text for this in prefs.scm if these
- * change!  These macros define the account types for which an auto interest
- * xfer dialog could pop up, if the user's preferences allow it.
- */
-#define account_type_has_auto_interest_charge(type)  (((type) == ACCT_TYPE_CREDIT) || \
-                                                      ((type) == ACCT_TYPE_LIABILITY) ||\
-						      ((type) == ACCT_TYPE_PAYABLE))
-
-#define account_type_has_auto_interest_payment(type) (((type) == ACCT_TYPE_BANK)  || \
-                                                      ((type) == ACCT_TYPE_ASSET) || \
-                                                      ((type) == ACCT_TYPE_MUTUAL) || \
-						      ((type) == ACCT_TYPE_RECEIVABLE))
-
-#define account_type_has_auto_interest_xfer(type) \
-  (  account_type_has_auto_interest_charge(type) || \
-    account_type_has_auto_interest_payment(type) )
 
 /** PROTOTYPES ******************************************************/
 static gnc_numeric recnRecalculateBalance (RecnWindow2 *recnData);
@@ -367,21 +349,6 @@ gnc_start_recn2_children_changed (GtkWidget *widget, startRecnWindowData *data)
 }
 
 
-/* For a given account, determine if an auto interest xfer dialog should be
- * shown, based on both the per-account flag as well as the global reconcile
- * option.  The global option is the default that is used if there is no
- * per-account option.
- */
-static gboolean
-gnc_recn_interest_xfer_get_auto_interest_xfer_allowed (Account *account)
-{
-    gboolean auto_xfer;
-
-    auto_xfer = gnc_prefs_get_bool (GNC_PREFS_GROUP_RECONCILE, GNC_PREF_AUTO_INTEREST_TRANSFER);
-    return xaccAccountGetAutoInterestXfer (account, auto_xfer);
-}
-
-
 /********************************************************************\
  * recnInterestXferWindow                                           *
  *   opens up a window to prompt the user to enter an interest      *
@@ -422,11 +389,6 @@ static void
 gnc_recn_interest_xfer_no_auto_clicked_cb (GtkButton *button,
         startRecnWindowData *data)
 {
-    /* Indicate that the user doesn't want
-     * an auto interest xfer for this account.
-     */
-    xaccAccountSetAutoInterestXfer (data->account, FALSE);
-
     /* shut down the interest xfer dialog */
     gnc_xfer_dialog_close (data->xferData);
 
@@ -569,10 +531,6 @@ gnc_reconcile_interest_xfer_run (startRecnWindowData *data)
 void
 gnc_start_recn2_interest_clicked_cb (GtkButton *button, startRecnWindowData *data)
 {
-    /* indicate in account that user wants
-     * an auto interest xfer for this account */
-    xaccAccountSetAutoInterestXfer (data->account, TRUE);
-
     /* make the button unclickable since we're popping up the window */
     if (data->xfer_button)
         gtk_widget_set_sensitive (GTK_WIDGET (data->xfer_button), FALSE);
@@ -672,8 +630,7 @@ startRecnWindow (GtkWidget *parent, Account *account,
     data.date = *statement_date;
 
     /* whether to have an automatic interest xfer dialog or not */
-    auto_interest_xfer_option =
-        gnc_recn_interest_xfer_get_auto_interest_xfer_allowed (account);
+    auto_interest_xfer_option = xaccAccountGetAutoInterest (account);
 
     data.include_children = xaccAccountGetReconcileChildrenStatus (account);
 
@@ -694,8 +651,8 @@ startRecnWindow (GtkWidget *parent, Account *account,
 
     dialog = GTK_WIDGET(gtk_builder_get_object (builder, "reconcile_start_dialog"));
 
-    // Set the style context for this dialog so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(dialog), "GncReconcileDialog");
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(dialog), "gnc-id-reconcile2-start");
 
     title = gnc_recn_make_window_name (account);
     gtk_window_set_title (GTK_WINDOW (dialog), title);
@@ -887,31 +844,12 @@ gnc_reconcile_window_row_cb (GNCReconcileView *view, gpointer item,
 static void
 do_popup_menu (RecnWindow2 *recnData, GdkEventButton *event)
 {
-    GtkWidget *menu;
-    int button, event_time;
+    GtkWidget *menu = gtk_ui_manager_get_widget (recnData->ui_merge, "/MainPopup");
 
-    menu = gtk_ui_manager_get_widget (recnData->ui_merge, "/MainPopup");
     if (!menu)
-    {
         return;
-    }
 
-#if GTK_CHECK_VERSION(3,22,0)
     gtk_menu_popup_at_pointer (GTK_MENU(menu), (GdkEvent *) event);
-#else
-    if (event)
-    {
-        button = event->button;
-        event_time = event->time;
-    }
-    else
-    {
-        button = 0;
-        event_time = gtk_get_current_event_time ();
-    }
-
-    gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL, button, event_time);
-#endif
 }
 
 
@@ -1063,30 +1001,13 @@ gnc_reconcile_key_press_cb (GtkWidget *widget, GdkEventKey *event,
 static void
 gnc_reconcile_window_set_titles (RecnWindow2 *recnData)
 {
-    gboolean formal;
-    gchar *title;
+    const gchar *title;
 
-    formal = gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL, GNC_PREF_ACCOUNTING_LABELS);
-
-    if (formal)
-        title = _("Debits");
-    else
-        title = gnc_get_debit_string (ACCT_TYPE_NONE);
-
+    title = gnc_account_get_debit_string (ACCT_TYPE_NONE);
     gtk_frame_set_label (GTK_FRAME (recnData->debit_frame), title);
 
-    if (!formal)
-        g_free(title);
-
-    if (formal)
-        title = _("Credits");
-    else
-        title = gnc_get_credit_string (ACCT_TYPE_NONE);
-
+    title = gnc_account_get_credit_string (ACCT_TYPE_NONE);
     gtk_frame_set_label (GTK_FRAME (recnData->credit_frame), title);
-
-    if (!formal)
-        g_free(title);
 }
 
 
@@ -1153,11 +1074,7 @@ gnc_reconcile_window_create_view_box (Account *account,
     gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
     *total_save = label;
 
-#if GTK_CHECK_VERSION(3,12,0)
     gtk_widget_set_margin_end (GTK_WIDGET(label), 10);
-#else
-    gtk_widget_set_margin_right (GTK_WIDGET(label), 10);
-#endif
 
     return vbox;
 }
@@ -1687,6 +1604,9 @@ recnWindow2WithBalance (GtkWidget *parent, Account *account,
     gtk_box_set_homogeneous (GTK_BOX (vbox), FALSE);
     gtk_container_add (GTK_CONTAINER(recnData->window), vbox);
 
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(recnData->window), "gnc-id-reconcile2");
+
     dock = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_set_homogeneous (GTK_BOX (dock), FALSE);
     gtk_widget_show (dock);
@@ -1773,9 +1693,15 @@ recnWindow2WithBalance (GtkWidget *parent, Account *account,
                      (account, RECLIST_DEBIT, recnData,
                       &recnData->debit, &recnData->total_debit);
 
+        // Add a style context for this widget so it can be easily manipulated with css
+        gnc_widget_style_context_add_class (GTK_WIDGET(debits_box), "gnc-class-debits");
+
         credits_box = gnc_reconcile_window_create_view_box
                       (account, RECLIST_CREDIT, recnData,
                        &recnData->credit, &recnData->total_credit);
+
+        // Add a style context for this widget so it can be easily manipulated with css
+        gnc_widget_style_context_add_class (GTK_WIDGET(credits_box), "gnc-class-credits");
 
         GNC_RECONCILE_VIEW (recnData->debit)->sibling = GNC_RECONCILE_VIEW (recnData->credit);
         GNC_RECONCILE_VIEW (recnData->credit)->sibling = GNC_RECONCILE_VIEW (recnData->debit);
@@ -1808,6 +1734,9 @@ recnWindow2WithBalance (GtkWidget *parent, Account *account,
             /* frame to hold totals */
             frame = gtk_frame_new (NULL);
             gtk_box_pack_end (GTK_BOX (hbox), frame, FALSE, FALSE, 0);
+
+            // Set the name for this dialog so it can be easily manipulated with css
+            gtk_widget_set_name (GTK_WIDGET(frame), "gnc-id-reconcile-totals");
 
             /* hbox to hold title/value vboxes */
             totals_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);

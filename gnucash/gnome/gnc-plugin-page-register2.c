@@ -129,8 +129,8 @@ static gchar *gnc_plugin_page_register2_filter_time2dmy (time64 raw_time);
 static gchar *gnc_plugin_page_register2_get_filter (GncPluginPage *plugin_page);
 void gnc_plugin_page_register2_set_filter (GncPluginPage *plugin_page, const gchar *filter);
 
-static void gnc_ppr_update_status_query (GncPluginPageRegister2 *page, gboolean refresh_page); 
-static void gnc_ppr_update_date_query (GncPluginPageRegister2 *page, gboolean refresh_page); 
+static void gnc_ppr_update_status_query (GncPluginPageRegister2 *page, gboolean refresh_page);
+static void gnc_ppr_update_date_query (GncPluginPageRegister2 *page, gboolean refresh_page);
 
 /* Command callbacks */
 static void gnc_plugin_page_register2_cmd_print_check (GtkAction *action, GncPluginPageRegister2 *plugin_page);
@@ -408,7 +408,7 @@ static GtkToggleActionEntry toggle_entries[] =
 {
     {
         "ViewStyleDoubleLineAction", NULL, N_("_Double Line"), NULL,
-        N_("Show two lines of information for each transaction"),
+        N_("Show a second line with \"Action\", \"Notes\", and \"File Association\" for each transaction."),
         G_CALLBACK (gnc_plugin_page_register2_cmd_style_double_line), FALSE
     },
 
@@ -908,7 +908,7 @@ gnc_plugin_page_register2_ui_update (gpointer various, GncPluginPageRegister2 *p
 
     /* Set 'Void' and 'Unvoid' */
     trans = gnc_tree_view_split_reg_get_current_trans (view);
-    voided = xaccTransHasSplitsInState (trans, VREC); 
+    voided = xaccTransHasSplitsInState (trans, VREC);
 
     action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE (page),
                                          "VoidTransactionAction");
@@ -1073,8 +1073,8 @@ gnc_plugin_page_register2_create_widget (GncPluginPage *plugin_page)
     gtk_box_set_homogeneous (GTK_BOX (priv->widget), FALSE);
     gtk_widget_show (priv->widget);
 
-    // Set the style context for this page so it can be easily manipulated with css
-    gnc_widget_set_style_context (GTK_WIDGET(priv->widget), "GncRegisterPage");
+    // Set the name for this widget so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(priv->widget), "gnc-id-register2-page");
 
     numRows = priv->lines_default;
     numRows = MIN (numRows, DEFAULT_LINES_AMOUNT);
@@ -1495,6 +1495,11 @@ gnc_plugin_page_register2_recreate_page (GtkWidget *window,
         acct_name = g_key_file_get_string (key_file, group_name,
                                           KEY_ACCOUNT_NAME, &error);
         book = qof_session_get_book (gnc_get_current_session());
+        if (!book)
+        {
+            LEAVE("Session has no book");
+            return NULL;
+        }
         account = gnc_account_lookup_by_full_name (gnc_book_get_root_account(book),
                   acct_name);
         g_free (acct_name);

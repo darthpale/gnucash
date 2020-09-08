@@ -31,6 +31,7 @@
 #include <config.h>
 
 #include <string.h>
+#include <qof.h>
 
 #include "gnucash-color.h"
 #include "gnucash-cursor.h"
@@ -58,10 +59,11 @@ enum
 
 #define MIN_BUTT_WIDTH 20 // minimum size for a button excluding border
 
+static QofLogModule log_module = G_LOG_DOMAIN;
 static GtkBoxClass *gnc_item_edit_parent_class;
 
 static GtkToggleButtonClass *gnc_item_edit_tb_parent_class;
-static void gnc_item_edit_destroying(GtkWidget *this, gpointer data);
+static void gnc_item_edit_destroying (GtkWidget *this, gpointer data);
 static void
 gnc_item_edit_tb_init (GncItemEditTb *item_edit_tb)
 {
@@ -146,9 +148,7 @@ gnc_item_edit_tb_class_init (GncItemEditTbClass *gnc_item_edit_tb_class)
     GObjectClass  *object_class;
     GtkWidgetClass *widget_class;
 
-#if GTK_CHECK_VERSION(3,20,0)
     gtk_widget_class_set_css_name (GTK_WIDGET_CLASS(gnc_item_edit_tb_class), "button");
-#endif
 
     gnc_item_edit_tb_parent_class = g_type_class_peek_parent (gnc_item_edit_tb_class);
 
@@ -207,9 +207,6 @@ gnc_item_edit_tb_new (GnucashSheet *sheet)
             g_object_new (GNC_TYPE_ITEM_EDIT_TB,
                           "sheet", sheet,
                            NULL);
-
-    // This sets a style class for when Gtk+ version is less than 3.20
-    gnc_widget_set_css_name (GTK_WIDGET(item_edit_tb), "button");
 
     context = gtk_widget_get_style_context (GTK_WIDGET(item_edit_tb));
     gtk_style_context_add_class (context, GTK_STYLE_CLASS_BUTTON);
@@ -316,6 +313,7 @@ gnc_item_edit_init (GncItemEdit *item_edit)
 
     item_edit->sheet = NULL;
     item_edit->editor = NULL;
+    item_edit->preedit_length = 0;
 
     item_edit->is_popup = FALSE;
     item_edit->show_popup = FALSE;
@@ -331,6 +329,8 @@ gnc_item_edit_init (GncItemEdit *item_edit)
     item_edit->popup_set_focus = NULL;
     item_edit->popup_post_show = NULL;
     item_edit->popup_user_data = NULL;
+    item_edit->popup_returned_height = 0;
+    item_edit->popup_height_signal_id = 0;
 
     item_edit->style = NULL;
     item_edit->button_width = MIN_BUTT_WIDTH;
@@ -498,12 +498,25 @@ draw_background_cb (GtkWidget *widget, cairo_t *cr, gpointer user_data)
 
     // Get the color type and apply the css class
     color_type = gnc_table_get_color (item_edit->sheet->table, item_edit->virt_loc, NULL);
-    gnucash_get_style_classes (item_edit->sheet, stylectxt, color_type);
+    gnucash_get_style_classes (item_edit->sheet, stylectxt, color_type, FALSE);
 
     gtk_render_background (stylectxt, cr, 0, 1, width, height - 2);
 
     gtk_style_context_restore (stylectxt);
     return FALSE;
+}
+
+/* The signal is emitted at the beginning of gtk_entry_preedit_changed_cb which
+ * proceeds to set its private members preedit_length = strlen(preedit) and
+ * preeditc_cursor = g_utf8_strlen(preedit, -1), then calls gtk_entry_recompute
+ * which in turn queues a redraw.
+ */
+static void
+preedit_changed_cb (GtkEntry* entry, gchar *preedit, GncItemEdit* item_edit)
+{
+    int pos, bound;
+    item_edit->preedit_length = g_utf8_strlen (preedit, -1); // Note codepoints not bytes
+    DEBUG ("%s %lu", preedit, item_edit->preedit_length);
 }
 
 
@@ -515,7 +528,8 @@ draw_text_cursor_cb (GtkWidget *widget, cairo_t *cr, gpointer user_data)
     GtkStyleContext *stylectxt = gtk_widget_get_style_context (GTK_WIDGET(widget));
     GtkStateFlags flags = gtk_widget_get_state_flags (GTK_WIDGET(widget));
     gint height = gtk_widget_get_allocated_height (widget);
-    const gchar *text;
+    PangoLayout *layout = gtk_entry_get_layout (GTK_ENTRY(widget));
+    const char *pango_text = pango_layout_get_text(layout);
     GdkRGBA *fg_color;
     GdkRGBA color;
     gint x_offset;
@@ -529,38 +543,39 @@ draw_text_cursor_cb (GtkWidget *widget, cairo_t *cr, gpointer user_data)
     gtk_style_context_get_color (stylectxt, flags, &color);
     fg_color = &color;
 
-    text = gtk_entry_get_text (GTK_ENTRY (widget));
 
-    if ((text != NULL) && (*text != '\0'))
+    if (pango_text && *pango_text)
     {
-        PangoLayout *layout;
         PangoRectangle strong_pos;
-        gint start_pos, end_pos, cursor_pos, cursor_byte_pos;
-
-        cursor_pos = gtk_editable_get_position (editable);
-        cursor_byte_pos = g_utf8_offset_to_pointer (text, cursor_pos) - text;
-
-        gtk_editable_get_selection_bounds (editable, &start_pos, &end_pos);
-
-        layout = gtk_entry_get_layout (GTK_ENTRY(widget));
-        pango_layout_get_cursor_pos (layout, cursor_byte_pos, &strong_pos, NULL);
+        glong text_len = g_utf8_strlen (pango_text, -1);
+        gint cursor_pos =
+            gtk_editable_get_position (editable) + item_edit->preedit_length;
+        gint cursor_byte_pos = cursor_pos < text_len ?
+            g_utf8_offset_to_pointer (pango_text, cursor_pos) - pango_text :
+            strlen (pango_text);
+        DEBUG ("Cursor: %d, byte offset %d, text byte len %zu", cursor_pos,
+               cursor_byte_pos, strlen (pango_text));
+        pango_layout_get_cursor_pos (layout, cursor_byte_pos,
+                                     &strong_pos, NULL);
         cursor_x = x_offset + PANGO_PIXELS (strong_pos.x);
     }
     else
+    {
+        DEBUG ("No text, cursor at %d.", x_offset);
         cursor_x = x_offset;
-
+    }
     // Now draw a vertical line
     cairo_set_source_rgb (cr, fg_color->red, fg_color->green, fg_color->blue);
     cairo_set_line_width (cr, 1.0);
-#if GTK_CHECK_VERSION(3,20,0)
-    cairo_move_to (cr, cursor_x + 0.5, gnc_item_edit_get_margin (item_edit, top) +
-                                       gnc_item_edit_get_padding_border (item_edit, top));
-    cairo_rel_line_to (cr, 0, height - gnc_item_edit_get_margin (item_edit, top_bottom) -
-                                       gnc_item_edit_get_padding_border (item_edit, top_bottom));
-#else
-    cairo_move_to (cr, cursor_x + 0.5, gnc_item_edit_get_padding_border (item_edit, top));
-    cairo_rel_line_to (cr, 0, height - gnc_item_edit_get_padding_border (item_edit, top_bottom));
-#endif
+
+    cairo_move_to (cr, cursor_x + 0.5,
+                   gnc_item_edit_get_margin (item_edit, top) +
+                   gnc_item_edit_get_padding_border (item_edit, top));
+    cairo_rel_line_to (cr, 0,
+                       height - gnc_item_edit_get_margin (item_edit, top_bottom)
+                       - gnc_item_edit_get_padding_border (item_edit,
+                                                           top_bottom));
+
     cairo_stroke (cr);
 
     return FALSE;
@@ -710,9 +725,7 @@ gnc_item_edit_class_init (GncItemEditClass *gnc_item_edit_class)
     GObjectClass  *object_class;
     GtkWidgetClass *widget_class;
 
-#if GTK_CHECK_VERSION(3,20,0)
-    gtk_widget_class_set_css_name (GTK_WIDGET_CLASS(gnc_item_edit_class), "cursor");
-#endif
+    gtk_widget_class_set_css_name (GTK_WIDGET_CLASS(gnc_item_edit_class), "gnc-id-cursor");
 
     gnc_item_edit_parent_class = g_type_class_peek_parent (gnc_item_edit_class);
 
@@ -856,7 +869,6 @@ gnc_item_edit_new (GnucashSheet *sheet)
     GtkBorder padding;
     GtkBorder margin;
     GtkBorder border;
-    GtkWidget *vb = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     GncItemEdit *item_edit =
             g_object_new (GNC_TYPE_ITEM_EDIT,
                           "sheet", sheet,
@@ -864,9 +876,6 @@ gnc_item_edit_new (GnucashSheet *sheet)
                           "homogeneous", FALSE,
                            NULL);
     gtk_layout_put (GTK_LAYOUT(sheet), GTK_WIDGET(item_edit), 0, 0);
-
-    // This sets a style class for when Gtk+ version is less than 3.20
-    gnc_widget_set_css_name (GTK_WIDGET(item_edit), "cursor");
 
     /* Create the text entry */
     item_edit->editor = gtk_entry_new();
@@ -876,7 +885,7 @@ gnc_item_edit_new (GnucashSheet *sheet)
 
     // Get the CSS space settings for the entry
     stylectxt = gtk_widget_get_style_context (GTK_WIDGET(item_edit->editor));
-    gtk_style_context_add_class (stylectxt, "register-foreground");
+    gtk_style_context_add_class (stylectxt, "gnc-class-register-foreground");
     gtk_style_context_get_padding (stylectxt, GTK_STATE_FLAG_NORMAL, &padding);
     gtk_style_context_get_margin (stylectxt, GTK_STATE_FLAG_NORMAL, &margin);
     gtk_style_context_get_border (stylectxt, GTK_STATE_FLAG_NORMAL, &border);
@@ -889,27 +898,12 @@ gnc_item_edit_new (GnucashSheet *sheet)
     gtk_widget_set_can_focus (GTK_WIDGET(item_edit->editor), FALSE);
     gtk_entry_set_has_frame (GTK_ENTRY(item_edit->editor), FALSE);
 
-#if !GTK_CHECK_VERSION(3,20,0)
-#if GTK_CHECK_VERSION(3,12,0)
-    gtk_widget_set_margin_start (GTK_WIDGET(item_edit->editor),
-                                 gnc_item_edit_get_margin (item_edit, left));
-    gtk_widget_set_margin_end (GTK_WIDGET(item_edit->editor),
-                               gnc_item_edit_get_margin (item_edit, right));
-#else
-    gtk_widget_set_margin_left (GTK_WIDGET(item_edit->editor),
-                                gnc_item_edit_get_margin (item_edit, left));
-    gtk_widget_set_margin_right (GTK_WIDGET(item_edit->editor),
-                                 gnc_item_edit_get_margin (item_edit, right));
-#endif
-    gtk_widget_set_margin_top (GTK_WIDGET(item_edit->editor),
-                               gnc_item_edit_get_margin (item_edit, top));
-    gtk_widget_set_margin_bottom (GTK_WIDGET(item_edit->editor),
-                                  gnc_item_edit_get_margin (item_edit, bottom));
-#endif
-
     // Connect to the draw signal so we can draw a cursor
     g_signal_connect_after (item_edit->editor, "draw",
                             G_CALLBACK (draw_text_cursor_cb), item_edit);
+
+    g_signal_connect (item_edit->editor, "preedit-changed",
+                      G_CALLBACK (preedit_changed_cb), item_edit);
 
     // Fill in the background so the underlying sheet cell can not be seen
     g_signal_connect (item_edit, "draw",
@@ -933,12 +927,7 @@ gnc_item_edit_new (GnucashSheet *sheet)
     gtk_container_add(GTK_CONTAINER(item_edit->popup_toggle.ebox),
                       item_edit->popup_toggle.tbutton);
 
-    /* The button needs to be packed into a vertical box so that the height and position
-     * can be controlled in earlier than Gtk3.20 versions */
-    gtk_box_pack_start (GTK_BOX(vb), item_edit->popup_toggle.ebox,
-                        FALSE, FALSE, 0);
-
-    gtk_box_pack_start (GTK_BOX(item_edit), vb, FALSE, FALSE, 0);
+    gtk_box_pack_start (GTK_BOX(item_edit), item_edit->popup_toggle.ebox, FALSE, FALSE, 0);
     gtk_widget_show_all(GTK_WIDGET(item_edit));
     g_signal_connect(G_OBJECT(item_edit), "destroy",
                      G_CALLBACK(gnc_item_edit_destroying), NULL);
@@ -946,8 +935,12 @@ gnc_item_edit_new (GnucashSheet *sheet)
 }
 
 static void
-gnc_item_edit_destroying(GtkWidget *item_edit, gpointer data)
+gnc_item_edit_destroying (GtkWidget *item_edit, gpointer data)
 {
+    if (GNC_ITEM_EDIT (item_edit)->popup_height_signal_id > 0)
+        g_signal_handler_disconnect (GNC_ITEM_EDIT (item_edit)->popup_item,
+                                     GNC_ITEM_EDIT (item_edit)->popup_height_signal_id);
+
     while (g_idle_remove_by_data((gpointer)item_edit))
         continue;
 }
@@ -1030,7 +1023,7 @@ gnc_item_edit_show_popup (GncItemEdit *item_edit)
 
     // Adjust the popup_y point based on popping above or below
     if (up_height > down_height)
-        popup_y = y - popup_h;
+        popup_y = y - popup_h - 1;
     else
         popup_y = y + h;
 
@@ -1039,10 +1032,11 @@ gnc_item_edit_show_popup (GncItemEdit *item_edit)
 
     // Lets check popup height is the true height
     item_edit->popup_returned_height = popup_h;
-    g_signal_connect_after (item_edit->popup_item, "size-allocate",
-                            G_CALLBACK(check_popup_height_is_true), item_edit);
 
-    gtk_widget_set_size_request (item_edit->popup_item, popup_w - 1, popup_h);
+    if (popup_h == popup_max_height)
+        gtk_widget_set_size_request (item_edit->popup_item, popup_w - 1, popup_h);
+    else
+        gtk_widget_set_size_request (item_edit->popup_item, popup_w - 1, -1);
 
     toggle = GTK_TOGGLE_BUTTON(item_edit->popup_toggle.tbutton);
 
@@ -1111,6 +1105,7 @@ gnc_item_edit_hide_popup (GncItemEdit *item_edit)
     gtk_widget_grab_focus (GTK_WIDGET (item_edit->sheet));
 }
 
+
 void
 gnc_item_edit_set_popup (GncItemEdit    *item_edit,
                          GtkWidget      *popup_item,
@@ -1125,6 +1120,24 @@ gnc_item_edit_set_popup (GncItemEdit    *item_edit,
 
     if (item_edit->is_popup)
         gnc_item_edit_hide_popup (item_edit);
+
+    /* setup size-allocate callback for popup_item height, done here as
+       item_edit is constant and popup_item changes per cell */
+    if (popup_item)
+    {
+        item_edit->popup_height_signal_id = g_signal_connect_after (
+                                            popup_item, "size-allocate",
+                                            G_CALLBACK(check_popup_height_is_true),
+                                            item_edit);
+    }
+    else
+    {
+        if (GNC_ITEM_EDIT (item_edit)->popup_height_signal_id > 0)
+        {
+            g_signal_handler_disconnect (item_edit->popup_item, item_edit->popup_height_signal_id);
+            item_edit->popup_height_signal_id = 0;
+        }
+    }
 
     item_edit->is_popup = popup_item != NULL;
 
