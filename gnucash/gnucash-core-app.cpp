@@ -135,7 +135,7 @@ mac_find_close_country(NSString *locale_str, NSString *country_str,
     NSString *this_locale, *new_locale = nil;
     PWARN("Apple Locale is set to a value %s not supported"
           " by the C runtime", [locale_str UTF8String]);
-    while ((this_locale = (NSString*)[locale_iter nextObject]))
+    while ((this_locale = [(NSString*)[locale_iter nextObject] stringByAppendingString: @".UTF-8"]))
         if ([ [ [NSLocale componentsFromLocaleIdentifier: this_locale]
               objectForKey: NSLocaleCountryCode]
              isEqualToString: country_str] &&
@@ -158,7 +158,7 @@ mac_find_close_country(NSString *locale_str, NSString *country_str,
         locale_str = new_locale;
     else
     {
-        locale_str = @"en_US";
+        locale_str = @"en_US.UTF-8";
         setlocale(LC_ALL, [locale_str UTF8String]);
     }
     PWARN("Using %s instead.", [locale_str UTF8String]);
@@ -233,8 +233,9 @@ set_mac_locale()
     {
         lang_str = [locale objectForKey: NSLocaleLanguageCode];
         country_str = [locale objectForKey: NSLocaleCountryCode];
-	locale_str = [ [lang_str stringByAppendingString: @"_"]
-		      stringByAppendingString: country_str];
+	locale_str = [[[lang_str stringByAppendingString: @"_"]
+		      stringByAppendingString: country_str]
+                      stringByAppendingString: @".UTF-8"];
     }
     @catch (NSException *err)
     {
@@ -246,7 +247,7 @@ set_mac_locale()
     }
 /* If we didn't get a valid current locale, the string will be just "_" */
     if ([locale_str isEqualToString: @"_"])
-	locale_str = @"en_US";
+	locale_str = @"en_US.UTF-8";
 
     lang_str = mac_convert_complex_language(lang_str);
     if (!setlocale(LC_ALL, [locale_str UTF8String]))
@@ -346,7 +347,7 @@ load_user_config(void)
 
 
 static void
-gnc_log_init (const boost::optional <std::vector <std::string>> &log_flags,
+gnc_log_init (const std::vector <std::string> log_flags,
               const boost::optional <std::string> &log_to_filename)
 {
     if (log_to_filename && !log_to_filename->empty())
@@ -389,24 +390,21 @@ gnc_log_init (const boost::optional <std::vector <std::string>> &log_flags,
         qof_log_parse_log_config (log_config_filename);
     g_free (log_config_filename);
 
-    if (log_flags && !log_flags->empty())
+    for (auto log_flag : log_flags)
     {
-        for (auto log_flag : *log_flags)
+        if (log_flag.empty () ||
+            log_flag[0] == '=' ||
+            log_flag[log_flag.length () - 1] == '=')
         {
-            if (log_flag.empty () ||
-                log_flag[0] == '=' ||
-                log_flag[log_flag.length () - 1] == '=')
-            {
-                g_warning ("string [%s] not parseable", log_flag.c_str());
-                continue;
-            }
-
-            std::vector<std::string> split_flag;
-            boost::split (split_flag, log_flag, [](char c){return c == '=';});
-
-            auto level = qof_log_level_from_string (split_flag[1].c_str());
-            qof_log_set_level (split_flag[0].c_str(), level);
+            g_warning ("string [%s] not parseable", log_flag.c_str());
+            continue;
         }
+
+        std::vector<std::string> split_flag;
+        boost::split (split_flag, log_flag, [](char c){return c == '=';});
+
+        auto level = qof_log_level_from_string (split_flag[1].c_str());
+        qof_log_set_level (split_flag[0].c_str(), level);
     }
 }
 

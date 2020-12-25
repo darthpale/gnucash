@@ -165,8 +165,8 @@ for taxes paid on expenses, and type LIABILITY for taxes collected on sales.")
                   (G_ "Default Format"))
           (vector 'au-bas
                   (G_ "Australia BAS")
-                  (G_ "Australia BAS. Specify sales, purchase and tax \
-accounts."))
+                  (G_ "Australia Business Activity Statement. Specify sales, \
+purchase and tax accounts."))
           (vector 'uk-vat
                   (G_ "UK VAT Return")
                   (G_ "UK VAT Return. Specify sales, purchase and tax \
@@ -195,7 +195,7 @@ with *EUGOODS* in the account description."))) #f
   ;; Disable account filtering
   (gnc:option-make-internal! options gnc:pagename-accounts "Filter Type")
   (gnc:option-make-internal! options gnc:pagename-accounts "Filter By...")
-  (gnc:option-make-internal! options gnc:pagename-general "Show original currency amount")
+  (gnc:option-make-internal! options "Currency" "Show original currency amount")
 
   ;; Enforce compulsory common-currency. It's senseless to allow
   ;; multiple currencies in a government report. Plus, single currency

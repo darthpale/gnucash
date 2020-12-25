@@ -106,6 +106,7 @@ typedef struct _AccountWindow
     GtkTreeView * parent_tree;
     GtkWidget * parent_scroll;
 
+    GtkWidget * opening_balance_button;
     GtkWidget * opening_balance_edit;
     GtkWidget * opening_balance_date_edit;
     GtkWidget * opening_balance_page;
@@ -118,7 +119,6 @@ typedef struct _AccountWindow
     GtkWidget * placeholder_button;
     GtkWidget * hidden_button;
     GtkWidget * auto_interest_button;
-    GtkWidget * auto_interest_button_label;
 
     gint component_id;
 } AccountWindow;
@@ -206,6 +206,37 @@ gnc_account_commodity_from_type (AccountWindow * aw, gboolean update)
     aw->commodity_mode = new_mode;
 }
 
+static void
+gnc_account_opening_balance_button_update (AccountWindow *aw, gnc_commodity *commodity)
+{
+    Account *account = aw_get_account (aw);
+    Account *ob_account = gnc_account_lookup_by_opening_balance (gnc_book_get_root_account (aw->book), commodity);
+    gboolean has_splits = xaccAccountCountSplits (account, FALSE) > 0;
+
+    if (xaccAccountGetType (account) != ACCT_TYPE_EQUITY)
+    {
+        gtk_widget_set_sensitive (aw->opening_balance_button, FALSE);
+        return;
+    }
+
+    /* The opening balance flag can be edited, if the associated feature is enabled and
+     * there is no opening balance account or we are editing the only opening balance account
+     * and it has no splits assigned.
+     */
+    if (!gnc_using_equity_type_opening_balance_account (gnc_get_current_book()))
+        return;
+
+    switch(aw->dialog_type)
+    {
+    case EDIT_ACCOUNT:
+        gtk_widget_set_sensitive (aw->opening_balance_button, (ob_account == NULL || ob_account == account) && has_splits == 0);
+        break;
+    case NEW_ACCOUNT:
+        gtk_widget_set_sensitive (aw->opening_balance_button, ob_account == NULL);
+        break;
+    }
+}
+
 /* Copy the account values to the GUI widgets */
 static void
 gnc_account_to_ui(AccountWindow *aw)
@@ -268,6 +299,12 @@ gnc_account_to_ui(AccountWindow *aw)
     if (string == NULL) string = "";
 
     gtk_text_buffer_set_text (aw->notes_text_buffer, string, strlen(string));
+
+    gnc_account_opening_balance_button_update (aw, commodity);
+
+    flag = xaccAccountGetIsOpeningBalance (account);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (aw->opening_balance_button),
+                                  flag);
 
     flag = xaccAccountGetTaxRelated (account);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (aw->tax_related_button),
@@ -434,6 +471,11 @@ gnc_ui_to_account(AccountWindow *aw)
     old_string = xaccAccountGetNotes (account);
     if (null_strcmp (string, old_string) != 0)
         xaccAccountSetNotes (account, string);
+
+    flag =
+        gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (aw->opening_balance_button));
+    if (xaccAccountGetIsOpeningBalance (account) != flag)
+        xaccAccountSetIsOpeningBalance (account, flag);
 
     flag =
         gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (aw->tax_related_button));
@@ -700,7 +742,7 @@ verify_children_compatible (AccountWindow *aw)
     gnc_label_set_alignment (label, 0.0, 0.0);
 
     /* make label large */
-    gnc_widget_style_context_add_class (GTK_WIDGET(label), "gnc-class-emphasize-label");
+    gnc_widget_style_context_add_class (GTK_WIDGET(label), "gnc-class-title");
 
     gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
 
@@ -857,6 +899,9 @@ gnc_common_ok (AccountWindow *aw)
         return FALSE;
     }
 
+    /* update opening balance account */
+    gnc_find_or_create_equity_account (root, EQUITY_OPENING_BALANCE, commodity);
+
     LEAVE("passed");
     return TRUE;
 }
@@ -975,11 +1020,11 @@ gnc_account_window_response_cb (GtkDialog *dialog,
         {
         case NEW_ACCOUNT:
             DEBUG("new acct dialog, HELP");
-            gnc_gnome_help(HF_HELP, HL_ACC);
+            gnc_gnome_help (GTK_WINDOW(dialog), HF_HELP, HL_ACC);
             break;
         case EDIT_ACCOUNT:
             DEBUG("edit acct dialog, HELP");
-            gnc_gnome_help(HF_HELP, HL_ACCEDIT);
+            gnc_gnome_help (GTK_WINDOW(dialog), HF_HELP, HL_ACCEDIT);
             break;
         default:
             g_assert_not_reached ();
@@ -1115,8 +1160,6 @@ set_auto_interest_box(AccountWindow *aw)
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (aw->auto_interest_button),
                                   type_ok && pref_set);
     gtk_widget_set_sensitive (GTK_WIDGET (aw->auto_interest_button), type_ok);
-    gtk_widget_set_sensitive (GTK_WIDGET (aw->auto_interest_button_label),
-                                          type_ok);
 }
 
 static void
@@ -1274,10 +1317,32 @@ commodity_changed_cb (GNCGeneralSelect *gsl, gpointer data)
     AccountWindow *aw = data;
     gnc_commodity *currency;
     GtkTreeSelection *selection;
+    Account *account = aw_get_account (aw);
 
     currency = (gnc_commodity *) gnc_general_select_get_selected (gsl);
     if (!currency)
         return;
+
+    if (xaccAccountGetIsOpeningBalance (account))
+    {
+        Account *ob_account = gnc_account_lookup_by_opening_balance (gnc_book_get_root_account (aw->book), currency);
+        if (ob_account != account)
+        {
+            gchar *dialog_msg = _("An account with opening balance already exists for the desired currency.");
+            gchar *dialog_title = _("Cannot change currency");
+            GtkWidget *dialog = gtk_message_dialog_new (gnc_ui_get_main_window (NULL),
+                                                        0,
+                                                        GTK_MESSAGE_ERROR,
+                                                        GTK_BUTTONS_OK,
+                                                        "%s", dialog_title);
+            gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG(dialog),
+                                 "%s", dialog_msg);
+            gtk_dialog_run(GTK_DIALOG(dialog));
+            gtk_widget_destroy(dialog);
+            gnc_general_select_set_selected (gsl, xaccAccountGetCommodity (account));
+            return;
+        }
+    }
 
     gnc_amount_edit_set_fraction (GNC_AMOUNT_EDIT (aw->opening_balance_edit),
                                   gnc_commodity_get_fraction (currency));
@@ -1286,6 +1351,7 @@ commodity_changed_cb (GNCGeneralSelect *gsl, gpointer data)
 
     selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (aw->transfer_tree));
     gtk_tree_selection_unselect_all (selection);
+    gnc_account_opening_balance_button_update (aw, currency);
 }
 
 static gboolean
@@ -1392,7 +1458,7 @@ gnc_account_window_create(GtkWindow *parent, AccountWindow *aw)
                          &aw->commodity_mode);
 
     // If the account has transactions, prevent changes by displaying a label and tooltip
-    if (xaccAccountCountSplits (aw_get_account (aw), FALSE) > 0)
+    if (xaccAccountGetSplitList (aw_get_account (aw)) != NULL)
     {
         const gchar *sec_name = gnc_commodity_get_printname (xaccAccountGetCommodity(aw_get_account (aw)));
         GtkWidget *label = gtk_label_new (sec_name);
@@ -1423,11 +1489,11 @@ gnc_account_window_create(GtkWindow *parent, AccountWindow *aw)
     g_signal_connect (G_OBJECT (selection), "changed",
                       G_CALLBACK (gnc_account_parent_changed_cb), aw);
 
+    aw->opening_balance_button = GTK_WIDGET(gtk_builder_get_object (builder, "opening_balance_button"));
     aw->tax_related_button = GTK_WIDGET(gtk_builder_get_object (builder, "tax_related_button"));
     aw->placeholder_button = GTK_WIDGET(gtk_builder_get_object (builder, "placeholder_button"));
     aw->hidden_button = GTK_WIDGET(gtk_builder_get_object (builder, "hidden_button"));
     aw->auto_interest_button = GTK_WIDGET(gtk_builder_get_object (builder, "auto_interest_button"));
-    aw->auto_interest_button_label = GTK_WIDGET(gtk_builder_get_object (builder, "label405"));
     set_auto_interest_box(aw);
 
 
@@ -1477,7 +1543,7 @@ gnc_account_window_create(GtkWindow *parent, AccountWindow *aw)
     //   immutable if gnucash depends on details that would be lost/missing
     //   if changing from/to such a type. At the time of this writing the
     //   immutable types are AR, AP and trading types.
-    if (xaccAccountCountSplits (aw_get_account (aw), FALSE) > 0)
+    if (xaccAccountGetSplitList (aw_get_account (aw)) != NULL)
     {
         GNCAccountType atype = xaccAccountGetType (aw_get_account (aw));
         compat_types = xaccAccountTypesCompatibleWith (atype);

@@ -479,14 +479,14 @@ developing over time"))
                ((alphabetical)
                 (lambda (a b)
                   (if show-fullname?
-                      (string<? (gnc-account-get-full-name (car a))
-                                (gnc-account-get-full-name (car b)))
-                      (string<? (xaccAccountGetName (car a))
-                                (xaccAccountGetName (car b))))))
+                      (gnc:string-locale<? (gnc-account-get-full-name (car a))
+                                           (gnc-account-get-full-name (car b)))
+                      (gnc:string-locale<? (xaccAccountGetName (car a))
+                                           (xaccAccountGetName (car b))))))
                ((acct-code)
                 (lambda (a b)
-                  (string<? (xaccAccountGetCode (car a))
-                            (xaccAccountGetCode (car b)))))
+                  (gnc:string-locale<? (xaccAccountGetCode (car a))
+                                       (xaccAccountGetCode (car b)))))
                ((amount)
                 (lambda (a b)
                   (> (gnc:gnc-monetary-amount (apply gnc:monetary+ (cadr a)))
@@ -570,6 +570,12 @@ developing over time"))
                                other-anchor)
 
                               ((null? (gnc-account-get-children acct))
+                               (gnc:account-anchor-text acct))
+
+                              ;; because the tree-depth option for
+                              ;; accounts/levels goes up to 6. FIXME:
+                              ;; magic number.
+                              ((>= tree-depth 6)
                                (gnc:account-anchor-text acct))
 
                               (else

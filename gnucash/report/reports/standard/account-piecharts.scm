@@ -31,6 +31,7 @@
 (use-modules (gnucash app-utils))
 (use-modules (gnucash report))
 (use-modules (srfi srfi-1))
+(use-modules (ice-9 format))
 
 (define menuname-income (N_ "Income Piechart"))
 (define menuname-expense (N_ "Expense Piechart"))
@@ -209,12 +210,12 @@ balance at a given time"))
   (cond
    ((eq? sort-method 'acct-code)
     (lambda (a b)
-      (string<? (xaccAccountGetCode (cadr a))
-                (xaccAccountGetCode (cadr b)))))
+      (gnc:string-locale<? (xaccAccountGetCode (cadr a))
+                           (xaccAccountGetCode (cadr b)))))
    ((eq? sort-method 'alphabetical)
     (lambda (a b)
-      (string<? (display-name-accounts show-fullname? (cadr a))
-                (display-name-accounts show-fullname? (cadr b)))))
+      (gnc:string-locale<? (display-name-accounts show-fullname? (cadr a))
+                           (display-name-accounts show-fullname? (cadr b)))))
    (else
     (lambda (a b) (> (car a) (car b))))))
 
@@ -223,12 +224,12 @@ balance at a given time"))
   (cond
    ((eq? sort-method 'acct-code)
     (lambda (a b)
-      (string<? (gnc-commodity-get-mnemonic (cadr a))
-                (gnc-commodity-get-mnemonic (cadr b)))))
+      (gnc:string-locale<? (gnc-commodity-get-mnemonic (cadr a))
+                           (gnc-commodity-get-mnemonic (cadr b)))))
    ((eq? sort-method 'alphabetical)
     (lambda (a b)
-      (string<? (display-name-security show-fullname? (cadr a))
-                (display-name-security show-fullname? (cadr b)))))
+      (gnc:string-locale<? (display-name-security show-fullname? (cadr a))
+                           (display-name-security show-fullname? (cadr b)))))
    (else
     (lambda (a b) (> (car a) (car b))))))
 
@@ -560,7 +561,7 @@ balance at a given time"))
                (gnc:html-chart-set-width! chart width)
                (gnc:html-chart-set-height! chart height)
                (gnc:html-chart-add-data-series! chart
-                                                "Accounts"
+                                                (G_ "Accounts")
                                                 (map round-scu (unzip1 combined))
                                                 (gnc:assign-colors (length combined))
                                                 'urls urls)

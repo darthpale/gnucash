@@ -220,7 +220,7 @@ public:
 /**
  *    Commits the changes from the engine to the backend data storage.
  */
-    virtual void commit (QofInstance*) {}
+    virtual void commit (QofInstance*);
 /**
  *    Revert changes in the engine and unlock the backend.
  */
@@ -273,7 +273,7 @@ public:
     QofBePercentageFunc get_percentage() { return m_percentage; }
 /** Retrieve the backend's storage URI.
  */
-    std::string get_uri() { return m_fullpath; }
+    const std::string& get_uri() { return m_fullpath; }
 /**
  * Class methods for dynamically loading the several backends and for freeing
  * them at shutdown.

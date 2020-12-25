@@ -1,13 +1,15 @@
-# Indonesian translations for PROJECT package
-# Terjemahan bahasa inggris untuk paket PROJECT. (Glossary)
-# Copyright (C) 2020 THE PROJECT'S COPYRIGHT HOLDER
+# Indonesian translations for GnuCash package
+# Terjemahan bahasa inggris untuk paket GnuCash. (Glossary)
+# Copyright (C) 2020 by the GnuCash developers and the translators listed below.
 # This file is distributed under the same license as the GnuCash package.
 # Triyan W. Nugroho <triyan.wn@gmail.com>, 2020.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2020-08-13 14:52+0700\n"
+"Project-Id-Version: GnuCash 4.1\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
+"product=GnuCash&component=Translations\n"
+"POT-Creation-Date: 2020-12-06 18:14+0100\n"
 "PO-Revision-Date: 2020-08-15 21:20+0700\n"
 "Last-Translator: Triyan W. Nugroho <triyan.wn@gmail.com>\n"
 "Language-Team: Indonesian\n"
@@ -370,6 +372,10 @@ msgstr "diskon"
 msgid "double entry"
 msgstr "pembukuan ganda"
 
+#. "Transactions or bills/invoices can contain a document link which links either to some file on the local disk or to some arbitrary URL."
+msgid "document link"
+msgstr ""
+
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
 msgstr "karyawan"
@@ -446,8 +452,14 @@ msgstr "buku besar"
 msgid "liabilities/equity"
 msgstr "liabilitas/ekuitas"
 
-#. "A sum of money that is lent (by a bank)"
+#. "A sum of money that is lent (by a bank), see also: financial calculator, Mortgage"
 msgid "loan"
+msgstr "pinjaman"
+
+#. "Annual Percentage Rate, includes in contrast to the Nominal Rate some of the various costs to obtain a loan."
+#, fuzzy
+#| msgid "loan"
+msgid "loan: APR"
 msgstr "pinjaman"
 
 #. "The money lost in business activity"
@@ -484,6 +496,18 @@ msgstr "Memo"
 
 #. "(a) An agreement by which money is lent by a bank for buying a house or other property, the property being the security. (b) A sum of money lent in this way."
 msgid "Mortgage"
+msgstr "Hipotek"
+
+#. "Adjustable Rate Mortgage"
+#, fuzzy
+#| msgid "Mortgage"
+msgid "mortgage: ARM"
+msgstr "Hipotek"
+
+#. "Fixed Rate Mortgage"
+#, fuzzy
+#| msgid "Mortgage"
+msgid "mortgage: FRM"
 msgstr "Hipotek"
 
 #. "e.g. USD, DEM, see Currency."

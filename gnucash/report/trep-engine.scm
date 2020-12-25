@@ -39,10 +39,28 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-module (gnucash report trep-engine))
+
 (use-modules (gnucash core-utils))
+(use-modules (gnucash engine))
+(use-modules (gnucash app-utils))
+(use-modules (gnucash utilities))
+(use-modules (gnucash report report-core)
+             (gnucash report report-utilities)
+             (gnucash report options-utilities)
+             (gnucash report commodity-utilities)
+             (gnucash report html-document)
+             (gnucash report html-style-info)
+             (gnucash report html-utilities)
+             (gnucash report html-table)
+             (gnucash report html-text))
 (use-modules (srfi srfi-11))
 (use-modules (srfi srfi-1))
 (use-modules (ice-9 match))
+
+(export gnc:trep-options-generator)
+(export gnc:trep-renderer)
+(export gnc:lists->csv)
 
 ;; Define the strings here to avoid typos and make changes easier.
 
@@ -77,10 +95,14 @@
 (define optname-startdate (N_ "Start Date"))
 (define optname-enddate (N_ "End Date"))
 (define optname-table-export (N_ "Table for Exporting"))
+(define optname-infobox-display (N_ "Add options summary"))
+
+;; Currency
+(define pagename-currency (N_ "Currency"))
+(define optname-price-source (N_ "Price Source"))
 (define optname-common-currency (N_ "Common Currency"))
 (define optname-orig-currency (N_ "Show original currency amount"))
 (define optname-currency (N_ "Report's currency"))
-(define optname-infobox-display (N_ "Add options summary"))
 
 ;;Filtering
 (define pagename-filter (N_ "Filter"))
@@ -352,14 +374,17 @@ in the Options panel."))
 (define show-void-list
   (list
    (list 'non-void-only
+         (cons 'how (logand CLEARED-ALL (lognot CLEARED-VOIDED)))
          (cons 'text (G_ "Non-void only"))
          (cons 'tip (G_ "Show only non-voided transactions.")))
 
    (list 'void-only
+         (cons 'how CLEARED-VOIDED)
          (cons 'text (G_ "Void only"))
          (cons 'tip (G_ "Show only voided transactions.")))
 
    (list 'both
+         (cons 'how CLEARED-ALL)
          (cons 'text (G_ "Both"))
          (cons 'tip (G_ "Show both (and include void transactions in totals).")))))
 
@@ -389,7 +414,7 @@ in the Options panel."))
    (list 'all
          (cons 'text (G_ "All"))
          (cons 'tip (G_ "Show All Transactions"))
-         (cons 'filter-types #f))
+         (cons 'filter-types CLEARED-ALL))
 
    (list 'unreconciled
          (cons 'text (G_ "Unreconciled"))
@@ -533,22 +558,26 @@ Credit Card, and Income accounts."))
 
   (gnc:register-trep-option
    (gnc:make-complex-boolean-option
-    gnc:pagename-general optname-common-currency
-    "e" (G_ "Convert all transactions into a common currency.") #f
-    #f
+    pagename-currency optname-common-currency
+    "a" (G_ "Convert all transactions into a common currency.") #f #f
     (lambda (x)
       (gnc-option-db-set-option-selectable-by-name
-       options gnc:pagename-general optname-currency x)
+       options pagename-currency optname-currency x)
       (gnc-option-db-set-option-selectable-by-name
-       options gnc:pagename-general optname-orig-currency x))))
-
-  (gnc:options-add-currency!
-   options gnc:pagename-general optname-currency "f")
+       options pagename-currency optname-orig-currency x)
+      (gnc-option-db-set-option-selectable-by-name
+       options pagename-currency optname-price-source x))))
 
   (gnc:register-trep-option
    (gnc:make-simple-boolean-option
-    gnc:pagename-general optname-orig-currency
-    "f1" (G_ "Also show original currency amounts") #f))
+    pagename-currency optname-orig-currency
+    "b" (G_ "Also show original currency amounts") #f))
+
+  (gnc:options-add-currency!
+   options pagename-currency optname-currency "c")
+
+  (gnc:options-add-price-source!
+   options pagename-currency optname-price-source "d" 'pricedb-nearest)
 
   (gnc:register-trep-option
    (gnc:make-simple-boolean-option
@@ -1048,7 +1077,7 @@ be excluded from periodic reporting.")
 ;; Here comes the big function that builds the whole table.
 
 (define (make-split-table splits options custom-calculated-cells
-                          begindate)
+                          begindate enddate c_account_1)
 
   (define (opt-val section name)
     (let ((option (gnc:lookup-option options section name)))
@@ -1077,10 +1106,10 @@ be excluded from periodic reporting.")
           (cons 'link (opt-val gnc:pagename-display (N_ "Link")))
           (cons 'amount-single (eq? amount-setting 'single))
           (cons 'amount-double (eq? amount-setting 'double))
-          (cons 'common-currency (opt-val gnc:pagename-general optname-common-currency))
+          (cons 'common-currency (opt-val pagename-currency optname-common-currency))
           (cons 'amount-original-currency
-                (and (opt-val gnc:pagename-general optname-common-currency)
-                     (opt-val gnc:pagename-general optname-orig-currency)))
+                (and (opt-val pagename-currency optname-common-currency)
+                     (opt-val pagename-currency optname-orig-currency)))
           (cons 'indenting (opt-val pagename-sorting optname-indenting))
           (cons 'subtotals-only
                 (and (opt-val pagename-sorting optname-show-subtotals-only)
@@ -1142,7 +1171,15 @@ be excluded from periodic reporting.")
           (gnc-reverse-balance acc)))
 
     (define (column-uses? param)
-      (cdr (assq param used-columns)))
+      (assq-ref used-columns param))
+
+    (define exchange-fn
+      (if (column-uses? 'common-currency)
+          (gnc:case-exchange-time-fn
+           (opt-val pagename-currency optname-price-source)
+           (opt-val pagename-currency optname-currency)
+           (gnc:accounts-get-commodities c_account_1 #f) enddate #f #f)
+          gnc:exchange-by-pricedb-nearest))
 
     (define left-columns
       (let* ((add-if (lambda (pred? . items) (if pred? items '())))
@@ -1252,8 +1289,8 @@ be excluded from periodic reporting.")
                                              (gnc:html-transaction-doclink-anchor
                                               (xaccSplitGetParent split)
                                               ;; Translators: 'L' is short for Linked Document
-                                              (G_ "L"))
-                                             (G_ "L"))))))))
+                                              (C_ "Column header for 'Document Link'" "L"))
+                                             (C_ "Column header for 'Document Link'" "L"))))))))
 
                (add-if (column-uses? 'price)
                        (vector (G_ "Price")
@@ -1285,7 +1322,7 @@ be excluded from periodic reporting.")
                                          (xaccSplitGetAmount s))))
            (split-currency (compose xaccAccountGetCommodity xaccSplitGetAccount))
            (row-currency (lambda (s) (if (column-uses? 'common-currency)
-                                         (opt-val gnc:pagename-general optname-currency)
+                                         (opt-val pagename-currency optname-currency)
                                          (split-currency s))))
            (friendly-debit (lambda (a) (gnc-account-get-debit-string (xaccAccountGetType a))))
            (friendly-credit (lambda (a) (gnc-account-get-credit-string (xaccAccountGetType a))))
@@ -1295,7 +1332,7 @@ be excluded from periodic reporting.")
                                 (if (column-uses? 'common-currency)
                                     (format #f " (~a)"
                                             (gnc-commodity-get-mnemonic
-                                             (opt-val gnc:pagename-general
+                                             (opt-val pagename-currency
                                                       optname-currency)))
                                     ""))))
            ;; For conversion to row-currency. Use midday as the
@@ -1303,7 +1340,7 @@ be excluded from periodic reporting.")
            ;; Otherwise it uses midnight which will likely match a
            ;; price on the previous day
            (converted-amount (lambda (s)
-                               (gnc:exchange-by-pricedb-nearest
+                               (exchange-fn
                                 (gnc:make-gnc-monetary (split-currency s)
                                                        (split-amount s))
                                 (row-currency s)
@@ -2023,10 +2060,12 @@ warning will be removed in GnuCash 5.0"))
                    'no-guile-regex-support)))
          (transaction-filter-exclude?
           (opt-val pagename-filter optname-transaction-matcher-exclude))
-         (reconcile-status-filter
-          (keylist-get-info reconcile-status-list
-                            (opt-val pagename-filter optname-reconcile-status)
-                            'filter-types))
+         (void-filter (opt-val pagename-filter optname-void-transactions))
+         (reconcile-filter (opt-val pagename-filter optname-reconcile-status))
+         (cleared-filter
+          (logand
+           (keylist-get-info reconcile-status-list reconcile-filter 'filter-types)
+           (keylist-get-info show-void-list void-filter 'how)))
          (report-title (opt-val gnc:pagename-general gnc:optname-reportname))
          (primary-key (opt-val pagename-sorting optname-prime-sortkey))
          (primary-order (opt-val pagename-sorting optname-prime-sortorder))
@@ -2034,7 +2073,6 @@ warning will be removed in GnuCash 5.0"))
          (secondary-key (opt-val pagename-sorting optname-sec-sortkey))
          (secondary-order (opt-val pagename-sorting optname-sec-sortorder))
          (secondary-date-subtotal (opt-val pagename-sorting optname-sec-date-subtotal))
-         (void-status (opt-val pagename-filter optname-void-transactions))
          (closing-match (keylist-get-info
                          show-closing-list
                          (opt-val pagename-filter optname-closing-transactions)
@@ -2085,7 +2123,7 @@ warning will be removed in GnuCash 5.0"))
              (value-of-X (comparator-function split-X))
              (value-of-Y (comparator-function split-Y))
              (op (if (string? value-of-X)
-                     (if ascend? string<? string>?)
+                     (if ascend? gnc:string-locale<? gnc:string-locale>?)
                      (if ascend? < >))))
         (and value-of-X (op value-of-X value-of-Y))))
 
@@ -2148,16 +2186,9 @@ warning will be removed in GnuCash 5.0"))
      (else
       (qof-query-set-book query (gnc-get-current-book))
       (xaccQueryAddAccountMatch query c_account_1 QOF-GUID-MATCH-ANY QOF-QUERY-AND)
+      (xaccQueryAddClearedMatch query cleared-filter QOF-QUERY-AND)
       (unless split->date
         (xaccQueryAddDateMatchTT query #t begindate #t enddate QOF-QUERY-AND))
-      (case void-status
-        ((non-void-only)
-         (gnc:query-set-match-non-voids-only! query (gnc-get-current-book)))
-        ((void-only)
-         (gnc:query-set-match-voids-only! query (gnc-get-current-book)))
-        (else #f))
-      (when reconcile-status-filter
-        (xaccQueryAddClearedMatch query reconcile-status-filter QOF-QUERY-AND))
       (when (boolean? closing-match)
         (xaccQueryAddClosingTransMatch query closing-match QOF-QUERY-AND))
       (unless custom-sort?
@@ -2226,7 +2257,7 @@ warning will be removed in GnuCash 5.0"))
        (else
         (let-values (((table grid csvlist)
                       (make-split-table splits options custom-calculated-cells
-                                        begindate)))
+                                        begindate enddate c_account_1)))
 
           (gnc:html-document-set-title! document report-title)
 
@@ -2248,7 +2279,7 @@ warning will be removed in GnuCash 5.0"))
           (when subtotal-table?
             (let* ((generic<?
                     (lambda (a b)
-                      (cond ((string? (car a)) (string<? (car a) (car b)))
+                      (cond ((string? (car a)) (gnc:string-locale<? (car a) (car b)))
                             ((number? (car a)) (< (car a) (car b)))
                             (else (gnc:error "unknown sortvalue")))))
                    (list-of-rows

@@ -1,26 +1,28 @@
 # Croatian translation of GNUCash glossary.
 # Copyright (C) 2019 Free Software Foundation, Inc.
 # Milo Ivir <mail@milotype.de>, 2019., 2020.
-#
 msgid ""
 msgstr ""
-"Project-Id-Version: GnuCash Glossary 3.10\n"
-"POT-Creation-Date: 2020-08-08 18:07+0200\n"
-"PO-Revision-Date: 2020-04-17 17:25+0200\n"
+"Project-Id-Version: GnuCash Glossary\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
+"cgi?product=GnuCash&component=Translations\n"
+"POT-Creation-Date: 2020-12-06 18:14+0100\n"
+"PO-Revision-Date: 2020-12-19 19:43+0000\n"
 "Last-Translator: Milo Ivir <mail@milotype.de>\n"
-"Language-Team: \n"
+"Language-Team: Croatian <https://hosted.weblate.org/projects/gnucash/"
+"glossary/hr/>\n"
 "Language: hr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
-"X-Generator: Poedit 2.3\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 4.4-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
 msgstr ""
-"Izraz (Napomena za prevodioce: ova datoteka služi isključivo kao pomoć pri "
+"Pojam (Napomena za prevodioce: ova datoteka služi isključivo kao pomoć pri "
 "prevođenju i nikada se neće prikazati korisniku programa!)"
 
 #. "A detailed record of money spent and received"
@@ -371,6 +373,10 @@ msgstr "skonto"
 msgid "double entry"
 msgstr "dvojno knjigovodstvo"
 
+#. "Transactions or bills/invoices can contain a document link which links either to some file on the local disk or to some arbitrary URL."
+msgid "document link"
+msgstr "poveznica na dokument"
+
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
 msgstr "radnik"
@@ -447,9 +453,13 @@ msgstr "glavna knjiga"
 msgid "liabilities/equity"
 msgstr "obveze/kapital"
 
-#. "A sum of money that is lent (by a bank)"
+#. "A sum of money that is lent (by a bank), see also: financial calculator, Mortgage"
 msgid "loan"
 msgstr "kredit/zajam"
+
+#. "Annual Percentage Rate, includes in contrast to the Nominal Rate some of the various costs to obtain a loan."
+msgid "loan: APR"
+msgstr "kredit: EKS"
 
 #. "The money lost in business activity"
 msgid "loss"
@@ -481,11 +491,19 @@ msgstr "Prikaz višestrukih prozora"
 
 #. "One textfield per split that should help you remember what this split was about."
 msgid "Memo"
-msgstr "Zabilješka"
+msgstr "Bilješka"
 
 #. "(a) An agreement by which money is lent by a bank for buying a house or other property, the property being the security. (b) A sum of money lent in this way."
 msgid "Mortgage"
 msgstr "Hipoteka"
+
+#. "Adjustable Rate Mortgage"
+msgid "mortgage: ARM"
+msgstr "hipoteka: promijenjiva stopa"
+
+#. "Fixed Rate Mortgage"
+msgid "mortgage: FRM"
+msgstr "hipoteka: fiksna stopa"
 
 #. "e.g. USD, DEM, see Currency."
 msgid "national currency"

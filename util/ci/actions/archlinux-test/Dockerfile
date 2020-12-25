@@ -4,6 +4,5 @@ run echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 run echo en_GB.UTF-8 UTF-8 >> /etc/locale.gen
 run echo fr_FR.UTF-8 UTF-8 >> /etc/locale.gen
 run locale-gen
-copy arch-testscript commonbuild /
-run chmod +x /arch-testscript /commonbuild
-entrypoint /arch-testscript
+copy entrypoint.sh /
+entrypoint /entrypoint.sh

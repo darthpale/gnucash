@@ -22,9 +22,54 @@
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-module (gnucash report html-utilities))
+
+(use-modules (gnucash core-utils))
 (use-modules (gnucash engine))
 (use-modules (gnucash utilities))
+(use-modules (gnucash app-utils))
+(use-modules (gnucash html))
+(use-modules (gnucash report report-core))
+(use-modules (gnucash report report-utilities))
+(use-modules (gnucash report html-style-info))
+(use-modules (gnucash report html-text))
+(use-modules (gnucash report html-table))
 (use-modules (ice-9 match))
+
+(export gnc:html-make-empty-cell)
+(export gnc:html-make-empty-cells)
+(export gnc:account-anchor-text)
+(export gnc:split-anchor-text)
+(export gnc:transaction-anchor-text)
+(export gnc:transaction-doclink-anchor-text)
+(export gnc:report-anchor-text)
+(export gnc:make-report-anchor)
+(export gnc:html-account-anchor)
+(export gnc:html-split-anchor)
+(export gnc:html-transaction-anchor)
+(export gnc:html-transaction-doclink-anchor)
+(export gnc:html-invoice-doclink-anchor)
+(export gnc:html-price-anchor)
+(export gnc:customer-anchor-text)
+(export gnc:job-anchor-text)
+(export gnc:vendor-anchor-text)
+(export gnc:invoice-anchor-text)
+(export gnc:owner-anchor-text)
+(export gnc:owner-report-text)
+(export gnc:assign-colors)
+(export gnc:html-table-append-ruler!)
+(export gnc:html-make-exchangerates)
+(export gnc:html-make-rates-table)
+(export gnc:html-render-options-changed)
+(export gnc:html-make-generic-warning)
+(export gnc:html-make-no-account-warning)
+(export gnc:html-make-generic-budget-warning)
+(export gnc:html-make-generic-options-warning)
+(export gnc:html-make-generic-simple-warning)
+(export gnc:html-make-empty-data-warning)
+(export gnc:html-make-options-link)
+(export gnc:html-js-include)
+(export gnc:html-css-include)
 
 ;; returns a list with n #f (empty cell) values 
 (define (gnc:html-make-empty-cell) #f)
@@ -47,6 +92,9 @@
 
 (define (gnc:transaction-doclink-anchor-text trans)
   (gnc:register-guid "trans-doclink-guid=" (gncTransGetGUID trans)))
+
+(define (gnc:invoice-doclink-anchor-text invoice)
+  (gnc:register-guid "invoice-doclink-guid=" (gncInvoiceReturnGUID invoice)))
 
 (define (gnc:report-anchor-text report-id)
   (gnc-build-url URL-TYPE-REPORT
@@ -159,6 +207,11 @@
                        (gnc:transaction-doclink-anchor-text trans)
                        text)))
 
+(define (gnc:html-invoice-doclink-anchor invoice text)
+  (gnc:make-html-text (gnc:html-markup-anchor
+                       (gnc:invoice-doclink-anchor-text invoice)
+                       text)))
+
 (define (gnc:html-price-anchor price value)
   (gnc:make-html-text (if price
                           (gnc:html-markup-anchor
@@ -199,10 +252,13 @@
 ;; function 'exchange-fn' and the 'accounts' determine which
 ;; commodities to show. Returns a html-object, a <html-table>.
 (define (gnc:html-make-exchangerates common-commodity exchange-fn accounts)
-  (let ((comm-list (gnc:accounts-get-commodities accounts common-commodity))
-        (markup (lambda (c) (gnc:make-html-table-cell/markup "number-cell" c)))
-        (table (gnc:make-html-table)))
-    (unless (null? comm-list)
+  (issue-deprecation-warning
+   "gnc:html-make-exchangerates is deprecated. use gnc:html-make-rates-table instead.")
+  (let* ((comm-list (gnc:accounts-get-commodities accounts common-commodity))
+         (entries (length comm-list))
+         (markup (lambda (c) (gnc:make-html-table-cell/markup "number-cell" c)))
+         (table (gnc:make-html-table)))
+    (unless (= 0 entries)
       (for-each
        (lambda (commodity)
          (let* ((orig-amt (gnc:make-gnc-monetary commodity 1))
@@ -215,10 +271,31 @@
        comm-list)
       (gnc:html-table-set-col-headers!
        table (list (gnc:make-html-table-header-cell/size
-                    1 2 (if (null? (cdr comm-list))
-                            (G_ "Exchange rate")
-                            (G_ "Exchange rates"))))))
+                    1 2 (NG_ "Exchange rate" "Exchange rates" entries)))))
     table))
+
+;; Create a html-table of all prices. The report-currency is
+;; 'currency', The prices are given through the function 'price-fn'
+;; and the 'accounts' determine which commodities to show. Returns a
+;; html-object, a <html-table>. price-fn is easily obtained from
+;; gnc:case-price-fn
+(define (gnc:html-make-rates-table currency price-fn accounts)
+  (define (cell c) (gnc:make-html-table-cell/markup "number-cell" c))
+  (define table (gnc:make-html-table))
+  (let lp ((comm-list (gnc:accounts-get-commodities accounts currency)) (entries 0))
+    (match comm-list
+      (()
+       (unless (zero? entries)
+         (gnc:html-table-set-col-headers!
+          table (list (gnc:make-html-table-header-cell/size
+                       1 2 (NG_ "Exchange rate" "Exchange rates" entries)))))
+       table)
+      ((comm . rest)
+       (gnc:html-table-append-row!
+        table
+        (list (cell (gnc:make-gnc-monetary comm 1))
+              (cell (gnc:default-price-renderer currency (price-fn comm)))))
+       (lp rest (1+ entries))))))
 
 
 (define (gnc:html-make-generic-budget-warning report-title-string)
@@ -228,13 +305,10 @@
 
 
 (define (gnc:html-make-generic-simple-warning report-title-string message)
-  (let ((p (gnc:make-html-text)))
-    (gnc:html-text-append!
-     p
-     (gnc:html-markup-h2 (string-append report-title-string ":"))
-     (gnc:html-markup-h2 "")
-     (gnc:html-markup-p message))
-    p))
+  (gnc:make-html-text
+   (gnc:html-markup-h3 (string-append report-title-string ":"))
+   (gnc:html-markup-h3 "")
+   (gnc:html-markup-p message)))
 
 
 (define (gnc:html-make-options-link report-id)
@@ -301,14 +375,11 @@
 (define (gnc:html-make-generic-warning
          report-title-string report-id
          warning-title-string warning-string)
-  (let ((p (gnc:make-html-text)))
-   (gnc:html-text-append!
-    p
-    (gnc:html-markup-h2 (string-append (G_ report-title-string) ":"))
-    (gnc:html-markup-h2 warning-title-string)
-    (gnc:html-markup-p warning-string)
-    (gnc:html-make-options-link report-id))
-   p))
+  (gnc:make-html-text
+   (gnc:html-markup-h3 (string-append (G_ report-title-string) ":"))
+   (gnc:html-markup-h3 warning-title-string)
+   (gnc:html-markup-p warning-string)
+   (gnc:html-make-options-link report-id)))
 
 (define (gnc:html-make-generic-options-warning
          report-title-string report-id)

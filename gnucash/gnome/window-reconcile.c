@@ -1153,7 +1153,8 @@ gnc_reconcile_window_get_current_split(RecnWindow *recnData)
 static void
 gnc_ui_reconcile_window_help_cb(GtkWidget *widget, gpointer data)
 {
-    gnc_gnome_help(HF_HELP, HL_RECNWIN);
+    RecnWindow *recnData = data;
+    gnc_gnome_help (GTK_WINDOW(recnData->window), HF_HELP, HL_RECNWIN);
 }
 
 
@@ -1663,13 +1664,15 @@ recnWindow (GtkWidget *parent, Account *account)
     if (account == NULL)
         return NULL;
 
-    /* The last time reconciliation was attempted during the current
-     * execution of gnucash, the date was stored. Use that date if
-     * possible. This helps with balancing multiple accounts for which
-     * statements are issued at the same time, like multiple bank
-     * accounts on a single statement. */
+    /* The last time reconciliation was attempted during the current execution
+     * of gnucash, the date was stored. Use that date if possible. This helps
+     * with balancing multiple accounts for which statements are issued at the
+     * same time, like multiple bank accounts on a single statement. Otherwise
+     * use the end of today to ensure we include any transactions posted
+     * today.
+     */
     if (!gnc_reconcile_last_statement_date)
-        statement_date = gnc_time (NULL);
+        statement_date = gnc_time64_get_day_end(gnc_time (NULL));
     else
         statement_date = gnc_reconcile_last_statement_date;
 

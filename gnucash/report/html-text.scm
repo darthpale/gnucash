@@ -21,7 +21,48 @@
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-module (gnucash report html-text))
+
+(use-modules (gnucash core-utils))
+(use-modules (gnucash report html-style-info))
+(use-modules (gnucash report html-document))
 (use-modules (srfi srfi-9))
+(use-modules (ice-9 match))
+
+(export <html-text>)
+(export gnc:html-text?)
+(export gnc:make-html-text-internal)
+(export gnc:make-html-text)
+(export gnc:html-text?)
+(export gnc:html-text-body)
+(export gnc:html-text-set-body-internal!)
+(export gnc:html-text-set-body!)
+(export gnc:html-text-style)
+(export gnc:html-text-set-style-internal!)
+(export gnc:html-text-set-style!)
+(export gnc:html-text-append!)
+(export gnc:html-markup)
+(export gnc:html-markup/attr)
+(export gnc:html-markup/no-end)
+(export gnc:html-markup/attr/no-end)
+(export gnc:html-markup/format)
+(export gnc:html-markup-p)
+(export gnc:html-markup-tt)
+(export gnc:html-markup-em)
+(export gnc:html-markup-b)
+(export gnc:html-markup-i)
+(export gnc:html-markup-h1)
+(export gnc:html-markup-h2)
+(export gnc:html-markup-h3)
+(export gnc:html-markup-br)
+(export gnc:html-markup-hr)
+(export gnc:html-markup-ol)
+(export gnc:html-markup-ul)
+(export gnc:html-markup-anchor)
+(export gnc:html-markup-img)
+(export gnc:html-text-render)
+(export gnc:html-text-render-markup)
+(export gnc:html-markup/open-tag-only)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  <html-text> class
@@ -132,7 +173,7 @@
             (apply string-append
                    (gnc:html-document-tree-collapse rendered-elt)))
            (#t 
-            (format "hold on there podner. form='~s'\n" rendered-elt)
+            (format #f "hold on there podner. form=~s\n" rendered-elt)
             ""))))
       entities))))
 
@@ -184,15 +225,10 @@
          rest))
 
 (define (gnc:html-markup-img src . rest)
-  (gnc:html-markup/attr/no-end 
-   "img" 
-   (with-output-to-string
-     (lambda ()
-       (for-each 
-        (lambda (kvp)
-          (format #t "~a=~s " (car kvp) (cadr kvp)))
-        (cons (list 'src src)
-              rest))))))
+  (let lp ((tags (cons (list 'src src) rest)) (acc '()))
+    (match tags
+      (() (gnc:html-markup/attr/no-end "img" (string-concatenate-reverse acc)))
+      (((attr val) . tail) (lp tail (cons (format #f "~a=~s " attr val) acc))))))
 
 (define (gnc:html-text-render p doc)
   (let* ((retval '())
@@ -202,7 +238,6 @@
     (gnc:html-document-push-style doc (gnc:html-text-style p))
     (for-each 
      (lambda (elt)
-       (gnc:pulse-progress-bar)
        (cond ((procedure? elt)
               (push (elt doc)))
              (#t 

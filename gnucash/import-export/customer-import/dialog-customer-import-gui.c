@@ -228,7 +228,8 @@ gnc_customer_import_gui_cancel_cb (GtkWidget *widget, gpointer data)
 void
 gnc_customer_import_gui_help_cb (GtkWidget *widget, gpointer data)
 {
-    gnc_gnome_help(HF_HELP, HL_USAGE_BSNSS);
+    CustomerImportGui *gui = data;
+    gnc_gnome_help (GTK_WINDOW(gui->dialog), HF_GUIDE, HL_IMPORT_CUST);
 }
 
 static void

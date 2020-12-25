@@ -20,7 +20,43 @@
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-module (gnucash report commodity-utilities))
+
+(use-modules (gnucash core-utils))
+(use-modules (gnucash engine))
+(use-modules (gnucash utilities))
+(use-modules (gnucash app-utils))
+(use-modules (gnucash report report-utilities))
+
+(use-modules (srfi srfi-1))
+(use-modules (srfi srfi-26))
 (use-modules (ice-9 match))
+
+(export gnc:get-match-commodity-splits)
+(export gnc:get-match-commodity-splits-sorted)
+(export gnc:get-all-commodity-splits )
+(export gnc:exchange-by-euro-numeric)
+(export gnc:get-commodity-totalavg-prices)
+(export gnc:get-commoditylist-totalavg-prices)
+(export gnc:get-commodity-inst-prices)
+(export gnc:pricelist-price-find-nearest)
+(export gnc:pricealist-lookup-nearest-in-time)
+(export gnc:resolve-unknown-comm)
+(export gnc:get-exchange-totals)
+(export gnc:get-exchange-cost-totals)
+(export gnc:make-exchange-alist)
+(export gnc:make-exchange-cost-alist)
+(export gnc:exchange-by-euro)
+(export gnc:exchange-if-same)
+(export gnc:make-exchange-function)
+(export gnc:exchange-by-pricedb-latest )
+(export gnc:exchange-by-pricedb-nearest)
+(export gnc:exchange-by-pricealist-nearest)
+(export gnc:case-exchange-fn)
+(export gnc:case-exchange-time-fn)
+(export gnc:case-price-fn)
+(export gnc:sum-collector-commodity)
+(export gnc:uniform-commodity?)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions to get splits with interesting data from accounts.
@@ -30,7 +66,8 @@
 (define (get-all-splits accounts end-date)
   (let ((query (qof-query-create-for-splits)))
     (qof-query-set-book query (gnc-get-current-book))
-    (gnc:query-set-match-non-voids-only! query (gnc-get-current-book))
+    (xaccQueryAddClearedMatch
+     query (logand CLEARED-ALL (lognot CLEARED-VOIDED)) QOF-QUERY-AND)
     (xaccQueryAddAccountMatch query accounts QOF-GUID-MATCH-ANY QOF-QUERY-AND)
     (xaccQueryAddDateMatchTT query #f 0 (and end-date #t) (or end-date 0) QOF-QUERY-AND)
     (let ((splits (qof-query-run query)))
@@ -762,6 +799,19 @@
        (lambda (foreign domestic)
          (gnc:exchange-by-pricedb-nearest
           foreign domestic to-date-tp))))))
+
+(define (gnc:case-price-fn source target-curr date)
+  (define pdb (gnc-pricedb-get-db (gnc-get-current-book)))
+  (case source
+    ((pricedb-nearest) (cut gnc-pricedb-get-nearest-price pdb <> target-curr
+                            (time64CanonicalDayTime date)))
+    ((pricedb-latest)  (cut gnc-pricedb-get-latest-price pdb <> target-curr))
+    (else
+     (lambda (commodity)
+       (let* ((exchange-fn (gnc:case-exchange-fn source target-curr date))
+              (foreign-mon (gnc:make-gnc-monetary commodity 1))
+              (domestic-mon (exchange-fn foreign-mon target-curr)))
+         (gnc:gnc-monetary-amount domestic-mon))))))
 
 ;; Return a ready-to-use function. Which one to use is determined by
 ;; the value of 'source-option', whose possible values are set in

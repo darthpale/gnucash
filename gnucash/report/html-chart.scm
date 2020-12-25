@@ -24,16 +24,42 @@
 ;; Boston, MA  02110-1301,  USA       gnu@gnu.org
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-module (gnucash report html-chart))
+
+(use-modules (gnucash core-utils))
 (use-modules (gnucash json builder))            ;for building JSON options
+(use-modules (gnucash report html-utilities))
 (use-modules (srfi srfi-9))
+(use-modules (ice-9 match))
+
+;; html-chart.scm
+
+(export gnc:html-chart?)
+(export gnc:make-html-chart)
+(export gnc:html-chart-data)
+(export gnc:html-chart-set-data!)
+(export gnc:html-chart-width)
+(export gnc:html-chart-set-width!)
+(export gnc:html-chart-height)
+(export gnc:html-chart-set-height!)
+(export gnc:html-chart-type)
+(export gnc:html-chart-set-type!)
+(export gnc:html-chart-title)
+(export gnc:html-chart-get)
+(export gnc:html-chart-set!)
+(export gnc:html-chart-currency-iso)
+(export gnc:html-chart-set-currency-iso!)
+(export gnc:html-chart-currency-symbol)
+(export gnc:html-chart-set-currency-symbol!)
+(export gnc:html-chart-render)
+(export gnc:html-chart-set-custom-x-axis-ticks?!)
+(export gnc:html-chart-set-custom-y-axis-ticks?!)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; utility functions for nested list handling
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(use-modules (ice-9 match))
 
 ;; nested-alist-set! parameters are
 ;; lst - a nested alist e.g. (list (cons 'key1 'val1)
@@ -155,6 +181,8 @@
                  (cons 'datasets #())))
     (cons 'options (list
                     (cons 'maintainAspectRatio #f)
+                    (cons 'animation (list
+                                      (cons 'duration 0)))
                     (cons 'chartArea (list
                                       (cons 'backgroundColor "#fffdf6")))
                     (cons 'legend (list
@@ -186,7 +214,6 @@
                                                                      (cons 'display #t)
                                                                      (cons 'labelString "")))
                                                   (cons 'ticks (list
-                                                                (cons 'fontSize 12)
                                                                 (cons 'maxRotation 30))))
                                                  ;; the following another xAxis at the top
                                                  '((position . top)
@@ -205,7 +232,6 @@
                                                                      (cons 'display 1.5)
                                                                      (cons 'labelString "")))
                                                   (cons 'ticks (list
-                                                                (cons 'fontSize 10)
                                                                 (cons 'beginAtZero #f))))
                                                  ;; the following another yAxis on the right
                                                  '((position . right)
@@ -215,7 +241,6 @@
                                                  ))))
                     (cons 'title (list
                                   (cons 'display #t)
-                                  (cons 'fontSize 16)
                                   (cons 'fontStyle "")
                                   (cons 'text ""))))))
    "XXX"     ;currency-iso
@@ -268,12 +293,12 @@
                          (cons 'backgroundColor (list-to-vec color))
                          (cons 'borderColor (list-to-vec color)))))
     (match rest
-      (() (gnc:html-chart-set!
-           chart '(data datasets)
-           (list->vector
-            (append (vector->list
-                     (or (gnc:html-chart-get chart '(data datasets)) #()))
-                    (list newseries)))))
+      (() (let* ((old-vec (gnc:html-chart-get chart '(data datasets)))
+                 (old-len (vector-length old-vec))
+                 (new-vec (make-vector (1+ old-len))))
+            (vector-move-left! old-vec 0 old-len new-vec 0)
+            (vector-set! new-vec old-len newseries)
+            (gnc:html-chart-set! chart '(data datasets) new-vec)))
       ((key val . rest) (loop rest (assq-set! newseries key (list-to-vec val)))))))
 
 (define-public (gnc:html-chart-clear-data-series! chart)
@@ -348,6 +373,17 @@ Chart.pluginService.register({
   }
 })
 
+// copy font info from css into chartjs.
+bodyStyle = window.getComputedStyle (document.querySelector ('body'));
+Chart.defaults.global.defaultFontSize = parseInt (bodyStyle.fontSize);
+Chart.defaults.global.defaultFontFamily = bodyStyle.fontFamily;
+Chart.defaults.global.defaultFontStyle = bodyStyle.fontStyle;
+
+titleStyle = window.getComputedStyle (document.querySelector ('h3'));
+chartjsoptions.options.title.fontSize = parseInt (titleStyle.fontSize);
+chartjsoptions.options.title.fontFamily = titleStyle.fontFamily;
+chartjsoptions.options.title.fontStyle = titleStyle.fontStyle;
+
 document.getElementById(chartid).onclick = function(evt) {
   var activepoints = myChart.getElementAtEvent(evt);
   var anchor = document.getElementById(jumpid);
@@ -398,21 +434,23 @@ document.getElementById(chartid).onclick = function(evt) {
          (push (lambda (l) (set! retval (cons l retval))))
          ;; Use a unique chart-id for each chart. This prevents charts
          ;; clashing on multi-column reports
-         (id (guid-new-return)))
+         (id (symbol->string (gensym "chart"))))
 
     (push (gnc:html-js-include
            (gnc-path-find-localized-html-file "chartjs/Chart.bundle.min.js")))
 
+    ;; the following hidden h3 is used to query style and copy onto chartjs
+    (push "<h3 style='display:none'></h3>")
     (push (format #f "<div style='width:~a;height:~a;'>\n"
                   (size->str (gnc:html-chart-width chart))
                   (size->str (gnc:html-chart-height chart))))
     (push (format #f "<a id='jump-~a' href='' style='display:none'></a>\n" id))
-    (push (format #f "<canvas id='chart-~a'></canvas>\n" id))
+    (push (format #f "<canvas id=~s></canvas>\n" id))
     (push "</div>\n")
     (push (format #f "<script id='script-~a'>\n" id))
     (push (format #f "var curriso = ~s;\n" (gnc:html-chart-currency-iso chart)))
     (push (format #f "var currsym = ~s;\n" (gnc:html-chart-currency-symbol chart)))
-    (push (format #f "var chartid = 'chart-~a';\n" id))
+    (push (format #f "var chartid = ~s;\n" id))
     (push (format #f "var jumpid = 'jump-~a';\n" id))
     (push (format #f "var loadstring = ~s;\n" (G_ "Load")))
     (push (format #f "var chartjsoptions = ~a;\n\n"
@@ -428,7 +466,6 @@ document.getElementById(chartid).onclick = function(evt) {
 
     (push "chartjsoptions.options.tooltips.callbacks.label = tooltipLabel;\n")
     (push "chartjsoptions.options.tooltips.callbacks.title = tooltipTitle;\n")
-    (push "Chart.defaults.global.defaultFontFamily = \"'Trebuchet MS', Arial, Helvetica, sans-serif\";\n")
     (push JS-setup)
 
     (push "var myChart = new Chart(chartid, chartjsoptions);\n")

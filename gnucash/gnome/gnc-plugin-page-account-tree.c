@@ -165,6 +165,7 @@ static void gnc_plugin_page_account_tree_cmd_refresh (GtkAction *action, GncPlug
 static void gnc_plugin_page_account_tree_cmd_autoclear (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_transfer (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_stock_split (GtkAction *action, GncPluginPageAccountTree *page);
+static void gnc_plugin_page_account_tree_cmd_edit_tax_options (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_lots (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_scrub (GtkAction *action, GncPluginPageAccountTree *page);
 static void gnc_plugin_page_account_tree_cmd_scrub_sub (GtkAction *action, GncPluginPageAccountTree *page);
@@ -272,7 +273,18 @@ static GtkActionEntry gnc_plugin_page_account_tree_actions [] =
         N_("Renumber the children of the selected account"),
         G_CALLBACK (gnc_plugin_page_account_tree_cmd_renumber_accounts)
     },
-
+    {
+        "EditTaxOptionsAction", NULL,
+        /* Translators: remember to reuse this *
+         * translation in dialog-account.glade */
+        N_("Ta_x Report Options"), NULL,
+        /* Translators: currently implemented are *
+         * US: income tax and                     *
+         * DE: VAT                                *
+         * So adjust this string                  */
+        N_("Setup relevant accounts for tax reports, e.g. US income tax"),
+        G_CALLBACK (gnc_plugin_page_account_tree_cmd_edit_tax_options)
+    },
     /* View menu */
     {
         "ViewFilterByAction", NULL, N_("_Filter By..."), NULL, NULL,
@@ -413,6 +425,8 @@ gnc_plugin_page_account_tree_new (void)
 
 G_DEFINE_TYPE_WITH_PRIVATE(GncPluginPageAccountTree, gnc_plugin_page_account_tree, GNC_TYPE_PLUGIN_PAGE)
 
+static gboolean show_abort_verify = TRUE;
+
 static void
 prepare_scrubbing ()
 {
@@ -420,21 +434,42 @@ prepare_scrubbing ()
     gnc_set_abort_scrub (FALSE);
 }
 
+static void
+finish_scrubbing (GncWindow *window, gulong handler_id)
+{
+    g_signal_handler_disconnect (G_OBJECT(window), handler_id);
+    show_abort_verify = TRUE;
+    gnc_resume_gui_refresh ();
+}
+
 static gboolean
-finish (GncPluginPage* page)
+gnc_plugin_page_account_finish_pending (GncPluginPage* page)
 {
     if (gnc_get_ongoing_scrub ())
     {
-        gboolean ret = gnc_verify_dialog (GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page))), FALSE, _("A scrubbing operation is currently pending, do you want to abort it?"));
-        if (ret)
+        if (show_abort_verify)
         {
-            gnc_set_abort_scrub (TRUE);
-            gnc_resume_gui_refresh (); // This is so quit does not complain about an ongoing operation.
-            return TRUE;
+            gboolean ret = gnc_verify_dialog (GTK_WINDOW(gnc_plugin_page_get_window
+                                             (GNC_PLUGIN_PAGE(page))), FALSE,
+                                             _("'Check & Repair' is currently running, do you want to abort it?"));
+
+            show_abort_verify = FALSE;
+
+            if (ret)
+                gnc_set_abort_scrub (TRUE);
+
+            return ret; // verify response
         }
-        return FALSE;
+        else
+        {
+            if (gnc_get_abort_scrub ())
+                return TRUE; // close
+            else
+                return FALSE; // no close
+        }
     }
-    return TRUE;
+    else
+        return TRUE; // normal close
 }
 
 static void
@@ -454,8 +489,7 @@ gnc_plugin_page_account_tree_class_init (GncPluginPageAccountTreeClass *klass)
     gnc_plugin_class->save_page       = gnc_plugin_page_account_tree_save_page;
     gnc_plugin_class->recreate_page   = gnc_plugin_page_account_tree_recreate_page;
     gnc_plugin_class->focus_page_function = gnc_plugin_page_account_tree_focus_widget;
-    gnc_plugin_class->finish_pending = finish;
-
+    gnc_plugin_class->finish_pending = gnc_plugin_page_account_finish_pending;
 
     plugin_page_signals[ACCOUNT_SELECTED] =
         g_signal_new ("account_selected",
@@ -1631,9 +1665,13 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
     }
 
     // If no transaction or children just delete it.
-    if (!(xaccAccountCountSplits (account, FALSE) ||
+    if (!(xaccAccountGetSplitList (account) != NULL ||
           gnc_account_n_children (account)))
     {
+        /* update opening balance account */
+        gnc_find_or_create_equity_account (gnc_account_get_root(account),
+                                           EQUITY_OPENING_BALANCE,
+                                           xaccAccountGetCommodity (account));
         do_delete_account (account, NULL, NULL, NULL);
         return;
     }
@@ -1669,8 +1707,14 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
                                 adopt.subtrans.new_account,
                                 adopt.subacct.new_account,
                                 adopt.delete_res) == GTK_RESPONSE_ACCEPT)
+    {
+        /* update opening balance account */
+        gnc_find_or_create_equity_account (gnc_account_get_root(account),
+                                           EQUITY_OPENING_BALANCE,
+                                           xaccAccountGetCommodity (account));
         do_delete_account (account, adopt.subacct.new_account,
                            adopt.subtrans.new_account, adopt.trans.new_account);
+    }
 }
 
 static int
@@ -1923,6 +1967,18 @@ gnc_plugin_page_account_tree_cmd_stock_split (GtkAction *action,
 }
 
 static void
+gnc_plugin_page_account_tree_cmd_edit_tax_options (GtkAction *action,
+        GncPluginPageAccountTree *page)
+{
+    GtkWidget *window;
+    Account *account;
+
+    account = gnc_plugin_page_account_tree_get_current_account (page);
+    window = GNC_PLUGIN_PAGE (page)->window;
+    gnc_tax_info_dialog (window, account);
+}
+
+static void
 gnc_plugin_page_account_tree_cmd_lots (GtkAction *action,
                                        GncPluginPageAccountTree *page)
 {
@@ -1931,17 +1987,42 @@ gnc_plugin_page_account_tree_cmd_lots (GtkAction *action,
     gnc_lot_viewer_dialog (GTK_WINDOW(window), account);
 }
 
+static gboolean scrub_kp_handler (GtkWidget *widget, GdkEventKey *event, gpointer data)
+{
+    if (event->length == 0) return FALSE;
+
+    switch (event->keyval)
+    {
+    case GDK_KEY_Escape:
+        {
+            gboolean abort_scrub = gnc_verify_dialog (GTK_WINDOW(widget), FALSE,
+                 _("'Check & Repair' is currently running, do you want to abort it?"));
+
+            if (abort_scrub)
+                gnc_set_abort_scrub (TRUE);
+
+            return TRUE;
+        }
+    default:
+        break;
+    }
+    return FALSE;
+}
+
 static void
 gnc_plugin_page_account_tree_cmd_scrub (GtkAction *action, GncPluginPageAccountTree *page)
 {
     Account *account = gnc_plugin_page_account_tree_get_current_account (page);
     GncWindow *window;
+    gulong scrub_kp_handler_ID;
 
     g_return_if_fail (account != NULL);
 
     prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
+    scrub_kp_handler_ID = g_signal_connect (G_OBJECT(window), "key-press-event",
+                                            G_CALLBACK(scrub_kp_handler), NULL);
     gnc_window_set_progressbar_window (window);
 
     xaccAccountScrubOrphans (account, gnc_window_show_progress);
@@ -1953,8 +2034,7 @@ gnc_plugin_page_account_tree_cmd_scrub (GtkAction *action, GncPluginPageAccountT
 
     gncScrubBusinessAccount(account, gnc_window_show_progress);
 
-
-    gnc_resume_gui_refresh ();
+    finish_scrubbing (window, scrub_kp_handler_ID);
 }
 
 static void
@@ -1962,12 +2042,15 @@ gnc_plugin_page_account_tree_cmd_scrub_sub (GtkAction *action, GncPluginPageAcco
 {
     Account *account = gnc_plugin_page_account_tree_get_current_account (page);
     GncWindow *window;
+    gulong scrub_kp_handler_ID;
 
     g_return_if_fail (account != NULL);
 
     prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
+    scrub_kp_handler_ID = g_signal_connect (G_OBJECT(window), "key-press-event",
+                                            G_CALLBACK(scrub_kp_handler), NULL);
     gnc_window_set_progressbar_window (window);
 
     xaccAccountTreeScrubOrphans (account, gnc_window_show_progress);
@@ -1979,7 +2062,7 @@ gnc_plugin_page_account_tree_cmd_scrub_sub (GtkAction *action, GncPluginPageAcco
 
     gncScrubBusinessAccountTree(account, gnc_window_show_progress);
 
-    gnc_resume_gui_refresh ();
+    finish_scrubbing (window, scrub_kp_handler_ID);
 }
 
 static void
@@ -1987,10 +2070,13 @@ gnc_plugin_page_account_tree_cmd_scrub_all (GtkAction *action, GncPluginPageAcco
 {
     Account *root = gnc_get_current_root_account ();
     GncWindow *window;
+    gulong scrub_kp_handler_ID;
 
     prepare_scrubbing ();
 
     window = GNC_WINDOW(GNC_PLUGIN_PAGE (page)->window);
+    scrub_kp_handler_ID = g_signal_connect (G_OBJECT(window), "key-press-event",
+                                            G_CALLBACK(scrub_kp_handler), NULL);
     gnc_window_set_progressbar_window (window);
 
     xaccAccountTreeScrubOrphans (root, gnc_window_show_progress);
@@ -2001,7 +2087,7 @@ gnc_plugin_page_account_tree_cmd_scrub_all (GtkAction *action, GncPluginPageAcco
 
     gncScrubBusinessAccountTree(root, gnc_window_show_progress);
 
-    gnc_resume_gui_refresh ();
+    finish_scrubbing (window, scrub_kp_handler_ID);
 }
 
 /** @} */

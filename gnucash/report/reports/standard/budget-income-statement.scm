@@ -46,6 +46,7 @@
 (use-modules (gnucash core-utils))
 (use-modules (gnucash app-utils))
 (use-modules (gnucash report))
+(use-modules (ice-9 format))
 
 ;; define all option's names and help text so that they are properly
 ;; defined in *one* place.
@@ -401,7 +402,8 @@
          ;; exchange rates calculation parameters
 	 (exchange-fn
 	  (gnc:case-exchange-fn price-source report-commodity date-t64))
-	 )
+
+         (price-fn (gnc:case-price-fn price-source report-commodity date-t64)))
     
     (define (add-subtotal-line table pos-label neg-label signed-balance)
       (let* ((neg? (and signed-balance neg-label
@@ -595,7 +597,7 @@
         (gnc:report-percent-done 90)
         (when show-rates?
           (gnc:html-document-add-object!
-           doc (gnc:html-make-exchangerates report-commodity exchange-fn accounts)))
+           doc (gnc:html-make-rates-table report-commodity price-fn accounts)))
         (gnc:report-percent-done 100))))
     
     (gnc:report-finished)

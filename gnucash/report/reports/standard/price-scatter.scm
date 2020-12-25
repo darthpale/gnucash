@@ -30,6 +30,7 @@
 (use-modules (gnucash app-utils))
 (use-modules (gnucash report))
 (use-modules (srfi srfi-1))
+(use-modules (ice-9 format))
 (use-modules (ice-9 match))
 
 (define optname-from-date (N_ "Start Date"))
@@ -192,7 +193,7 @@
       (gnc:html-document-add-object! 
        document 
        (gnc:make-html-text 
-        (gnc:html-markup-h2 title)
+        (gnc:html-markup-h3 title)
         (gnc:html-markup-p text))))
 
     (gnc:html-chart-set-type! chart 'line)

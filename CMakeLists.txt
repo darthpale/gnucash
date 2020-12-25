@@ -6,7 +6,7 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.14.0)
 endif()
 
 project (gnucash
-    VERSION 4.1
+    VERSION 4.2
 )
 
 enable_testing()
@@ -207,7 +207,7 @@ pkg_check_modules (GTHREAD REQUIRED gthread-2.0)
 pkg_check_modules (LIBXML2 REQUIRED libxml-2.0>=2.9.4)
 pkg_check_modules (LIBXSLT REQUIRED libxslt)
 if (WITH_GNUCASH)
-  if (WIN32 OR APPLE)
+  if (WIN32)
     pkg_check_modules (WEBKIT REQUIRED IMPORTED_TARGET webkitgtk-3.0)
     set(WEBKIT1 1 CACHE INTERNAL "WebKitGtk")
   else()

@@ -55,6 +55,9 @@ static QofLogModule log_module = GNC_MOD_ACCOUNT;
 /* The Canonical Account Separator.  Pre-Initialized. */
 static gchar account_separator[8] = ".";
 static gunichar account_uc_separator = ':';
+
+static bool imap_convert_bayes_to_flat_run = false;
+
 /* Predefined KVP paths */
 static const std::string KEY_ASSOC_INCOME_ACCOUNT("ofx/associated-income-account");
 static const std::string KEY_RECONCILE_INFO("reconcile-info");
@@ -113,6 +116,7 @@ enum
 
     PROP_LOT_NEXT_ID,                   /* KVP */
     PROP_ONLINE_ACCOUNT,                /* KVP */
+    PROP_IS_OPENING_BALANCE,            /* KVP */
     PROP_OFX_INCOME_ACCOUNT,            /* KVP */
     PROP_AB_ACCOUNT_ID,                 /* KVP */
     PROP_AB_ACCOUNT_UID,                /* KVP */
@@ -464,6 +468,9 @@ gnc_account_get_property (GObject         *object,
     case PROP_AUTO_INTEREST:
         g_value_set_boolean (value, xaccAccountGetAutoInterest (account));
         break;
+    case PROP_IS_OPENING_BALANCE:
+        g_value_set_boolean(value, xaccAccountGetIsOpeningBalance(account));
+        break;
     case PROP_PLACEHOLDER:
         g_value_set_boolean(value, xaccAccountGetPlaceholder(account));
         break;
@@ -591,6 +598,9 @@ gnc_account_set_property (GObject         *object,
         break;
     case PROP_AUTO_INTEREST:
         xaccAccountSetAutoInterest (account, g_value_get_boolean (value));
+        break;
+    case PROP_IS_OPENING_BALANCE:
+        xaccAccountSetIsOpeningBalance (account, g_value_get_boolean (value));
         break;
     case PROP_PLACEHOLDER:
         xaccAccountSetPlaceholder(account, g_value_get_boolean(value));
@@ -939,6 +949,15 @@ gnc_account_class_init (AccountClass *klass)
 
     g_object_class_install_property
     (gobject_class,
+     PROP_IS_OPENING_BALANCE,
+     g_param_spec_boolean ("opening-balance",
+                           "Opening Balance",
+                           "Whether the account holds opening balances",
+                           FALSE,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE)));
+
+    g_object_class_install_property
+    (gobject_class,
      PROP_TAX_CODE,
      g_param_spec_string ("tax-code",
                           "Tax Code",
@@ -989,7 +1008,7 @@ gnc_account_class_init (AccountClass *klass)
                            "added before reconcile.",
                            FALSE,
                            static_cast<GParamFlags>(G_PARAM_READWRITE)));
-    
+
     g_object_class_install_property
     (gobject_class,
      PROP_PLACEHOLDER,
@@ -1862,12 +1881,12 @@ gnc_account_set_balance_dirty (Account *acc)
 void gnc_account_set_defer_bal_computation (Account *acc, gboolean defer)
 {
     AccountPrivate *priv;
-    
+
     g_return_if_fail (GNC_IS_ACCOUNT (acc));
-    
+
     if (qof_instance_get_destroying (acc))
         return;
-    
+
     priv = GET_PRIVATE (acc);
     priv->defer_bal_computation = defer;
 }
@@ -3015,6 +3034,21 @@ gnc_account_lookup_by_code (const Account *parent, const char * code)
     return NULL;
 }
 
+static gpointer
+is_opening_balance_account (Account* account, gpointer data)
+{
+    gnc_commodity* commodity = GNC_COMMODITY(data);
+    if (xaccAccountGetIsOpeningBalance(account) && gnc_commodity_equiv(commodity, xaccAccountGetCommodity(account)))
+        return account;
+    return nullptr;
+}
+
+Account*
+gnc_account_lookup_by_opening_balance (Account* account, gnc_commodity* commodity)
+{
+    return (Account *)gnc_account_foreach_descendant_until (account, is_opening_balance_account, commodity);
+}
+
 /********************************************************************\
  * Fetch an account, given its full name                            *
 \********************************************************************/
@@ -3884,6 +3918,20 @@ xaccAccountCountSplits (const Account *acc, gboolean include_children)
     return nr;
 }
 
+gboolean gnc_account_and_descendants_empty (Account *acc)
+{
+    g_return_val_if_fail (GNC_IS_ACCOUNT (acc), FALSE);
+    if (xaccAccountGetSplitList (acc)) return FALSE;
+    auto empty = TRUE;
+    auto *children = gnc_account_get_children (acc);
+    for (auto *n = children; n && empty; n = n->next)
+    {
+        empty = gnc_account_and_descendants_empty ((Account*)n->data);
+    }
+    g_list_free (children);
+    return empty;
+}
+
 LotList *
 xaccAccountGetLotList (const Account *acc)
 {
@@ -3916,11 +3964,11 @@ xaccAccountFindOpenLots (const Account *acc,
             continue;
 
         /* Ok, this is a valid lot.  Add it to our list of lots */
-        if (sort_func)
-            retval = g_list_insert_sorted (retval, lot, sort_func);
-        else
-            retval = g_list_prepend (retval, lot);
+        retval = g_list_prepend (retval, lot);
     }
+
+    if (sort_func)
+        retval = g_list_sort (retval, sort_func);
 
     return retval;
 }
@@ -4109,6 +4157,22 @@ void
 xaccAccountSetPlaceholder (Account *acc, gboolean val)
 {
     set_boolean_key(acc, {"placeholder"}, val);
+}
+
+gboolean
+xaccAccountGetIsOpeningBalance (const Account *acc)
+{
+    if (GET_PRIVATE(acc)->type != ACCT_TYPE_EQUITY)
+        return false;
+    return g_strcmp0(get_kvp_string_tag(acc, "equity-type"), "opening-balance") == 0;
+}
+
+void
+xaccAccountSetIsOpeningBalance (Account *acc, gboolean val)
+{
+    if (GET_PRIVATE(acc)->type != ACCT_TYPE_EQUITY)
+        return;
+    set_kvp_string_tag(acc, "equity-type", val ? "opening-balance" : "");
 }
 
 GNCPlaceholderType
@@ -5540,7 +5604,7 @@ convert_entry (KvpEntry entry, Account* root)
 }
 
 static std::vector<FlatKvpEntry>
-get_new_flat_imap (Account * acc)
+get_flat_imap (Account * acc)
 {
     auto frame = qof_instance_get_slots (QOF_INSTANCE (acc));
     auto slot = frame->get_slot ({IMAP_FRAME_BAYES});
@@ -5566,17 +5630,15 @@ convert_imap_account_bayes_to_flat (Account *acc)
     auto frame = qof_instance_get_slots (QOF_INSTANCE (acc));
     if (!frame->get_keys().size())
         return false;
-    auto new_imap = get_new_flat_imap(acc);
+    auto flat_imap = get_flat_imap(acc);
+    if (!flat_imap.size ())
+        return false;
     xaccAccountBeginEdit(acc);
     frame->set({IMAP_FRAME_BAYES}, nullptr);
-    if (!new_imap.size ())
-    {
-        xaccAccountCommitEdit(acc);
-        return false;
-    }
-    std::for_each(new_imap.begin(), new_imap.end(), [&frame] (FlatKvpEntry const & entry) {
-        frame->set({entry.first.c_str()}, entry.second);
-    });
+    std::for_each(flat_imap.begin(), flat_imap.end(),
+                  [&frame] (FlatKvpEntry const & entry) {
+                      frame->set({entry.first.c_str()}, entry.second);
+                  });
     qof_instance_set_dirty (QOF_INSTANCE (acc));
     xaccAccountCommitEdit(acc);
     return true;
@@ -5604,6 +5666,12 @@ imap_convert_bayes_to_flat (QofBook * book)
     return ret;
 }
 
+void
+gnc_account_reset_convert_bayes_to_flat (void)
+{
+    imap_convert_bayes_to_flat_run = false;
+}
+
 /*
  * Here we check to see the state of import map data.
  *
@@ -5618,10 +5686,13 @@ imap_convert_bayes_to_flat (QofBook * book)
 static void
 check_import_map_data (QofBook *book)
 {
-    if (gnc_features_check_used (book, GNC_FEATURE_GUID_FLAT_BAYESIAN))
+    if (gnc_features_check_used (book, GNC_FEATURE_GUID_FLAT_BAYESIAN) ||
+        imap_convert_bayes_to_flat_run)
         return;
+
     /* This function will set GNC_FEATURE_GUID_FLAT_BAYESIAN if necessary.*/
     imap_convert_bayes_to_flat (book);
+    imap_convert_bayes_to_flat_run = true;
 }
 
 static constexpr double threshold = .90 * probability_factor; /* 90% */
@@ -6009,6 +6080,11 @@ gboolean xaccAccountRegister (void)
             ACCOUNT_TAX_RELATED, QOF_TYPE_BOOLEAN,
             (QofAccessFunc) xaccAccountGetTaxRelated,
             (QofSetterFunc) xaccAccountSetTaxRelated
+        },
+        {
+            ACCOUNT_OPENING_BALANCE_, QOF_TYPE_BOOLEAN,
+            (QofAccessFunc) xaccAccountGetIsOpeningBalance,
+            (QofSetterFunc) xaccAccountSetIsOpeningBalance
         },
         {
             ACCOUNT_SCU, QOF_TYPE_INT32,
