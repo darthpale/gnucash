@@ -1,25 +1,30 @@
 # Finnish messages for gnucash-glossary.
 # Copyright (C) 2020 Free Software Foundation, Inc.
 # Marko Kohtala <marko.kohtala@gmail.com>, 2020.
-#
 msgid ""
 msgstr ""
 "Project-Id-Version: GnuCash 3.10\n"
 "Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
 "product=GnuCash&component=Translations\n"
-"POT-Creation-Date: 2020-12-06 18:14+0100\n"
-"PO-Revision-Date: 2020-12-19 13:16+0200\n"
+"POT-Creation-Date: 2020-12-30 10:07+0100\n"
+"PO-Revision-Date: 2020-12-22 08:12+0000\n"
 "Last-Translator: Marko Kohtala <marko.kohtala@gmail.com>\n"
-"Language-Team: \n"
+"Language-Team: Finnish <https://hosted.weblate.org/projects/gnucash/glossary/"
+"fi/>\n"
 "Language: fi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.4.2\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.4-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
 msgstr "Termi (Hyvä kääntäjä: Tämä tiedosto ei näy koskaan käyttäjälle!)"
+
+#. "Opening and closing quote symbols and optionally their key combos like [altgr]+[Y]/[X]. Define the preferred style of quotation, see https://en.wikipedia.org/wiki/Quotation_mark#Summary_table"
+msgid "\"\""
+msgstr ""
 
 #. "A detailed record of money spent and received"
 msgid "account"
@@ -373,6 +378,10 @@ msgstr "kahdenkertainen"
 msgid "document link"
 msgstr "liittyvä asiakirja"
 
+#. "Electronic mail. Some languages allow different writings, but each team should use only one. https://en.wikipedia.org/wiki/Email"
+msgid "email"
+msgstr ""
+
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
 msgstr "työntekijä"
@@ -676,7 +685,7 @@ msgstr "raporttimuoto: peräkkäiset tilit"
 
 #. "name of an equity account (?); to be distinguished from the opening balance."
 msgid "Retained Earnings"
-msgstr "Kertyneet voitot"
+msgstr "Kertyneet voittovarat"
 
 #. "Create a new transaction that is the inverse of the old one.  When you add the two together they completely cancel out.  Accounts use this instead of voiding transactions, usually because the prior month has been closed and can no longer be changed, or the entire accounting system is 'write only'."
 msgid "reverse transaction, to (Action in the register)"
@@ -734,7 +743,25 @@ msgstr "verokoodi"
 msgid "tax info"
 msgstr "verotieto"
 
-#. "if you create a new e.g. style sheet, you can start from a template"
+#. "Amost everybody has to declare and probably pay it. Ask Al Capone or Donald Trump! ;-)"
+#, fuzzy
+#| msgid "account type: Income"
+msgid "tax type: income tax"
+msgstr "tilityyppi: Tulo"
+
+#. "Usually only business users have to handle it."
+msgid "tax type: sales tax"
+msgstr ""
+
+#. "'Goods and Service Tax' is one form of sales tax."
+msgid "tax type: GST"
+msgstr ""
+
+#. "'Value Added Tax' is the other form of sales tax."
+msgid "tax type: VAT"
+msgstr ""
+
+#. "If you create a new e.g. style sheet, you can start from a template."
 msgid "template"
 msgstr "malline"
 
@@ -795,7 +822,7 @@ msgstr "tyyppi"
 msgid "units"
 msgstr "yksiköt"
 
-#. "-"
+#. "Uniform Resource Locator, https://en.wikipedia.org/wiki/URL"
 msgid "URL"
 msgstr "URL-osoite"
 

@@ -15,22 +15,24 @@
 # Takayuki KUSANO <AE5T-KSN@asahi-net.or.jp>, 2008-2009.
 # Yasuaki Taniguchi <yasuakit@gmail.com>, 2009-2017.
 # YOSHINO Yoshihito <yy.y.ja.jp@gmail.com>, 2018, 2020.
+# Takuro Onoue <kusanaginoturugi@gmail.com>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: gnucash 4.0\n"
-"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
-"product=GnuCash&component=Translations\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
+"cgi?product=GnuCash&component=Translations\n"
 "POT-Creation-Date: 2020-12-13 22:01+0100\n"
-"PO-Revision-Date: 2020-07-25 23:06+0900\n"
-"Last-Translator: Yasuaki Taniguchi <yasuakit@gmail.com>\n"
-"Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
+"PO-Revision-Date: 2020-12-27 05:29+0000\n"
+"Last-Translator: YOSHINO Yoshihito <yy.y.ja.jp@gmail.com>\n"
+"Language-Team: Japanese <https://hosted.weblate.org/projects/gnucash/gnucash/"
+"ja/>\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 4.4.1-dev\n"
 "X-Bugs: Report translation errors to the Language-Team address.\n"
-"X-Generator: Poedit 2.0.2\n"
 
 #: bindings/guile/commodity-table.scm:44
 msgid "ALL NON-CURRENCY"
@@ -1583,10 +1585,8 @@ msgid "Enter URL like http://www.gnucash.org:"
 msgstr "URL を http://www.gnucash.org のように入力してください:"
 
 #: gnucash/gnome/dialog-doclink.c:205
-#, fuzzy
-#| msgid "Existing Association is"
 msgid "Existing Document Link is"
-msgstr "既存の関連付けは"
+msgstr "既存の文書リンクは"
 
 #: gnucash/gnome/dialog-doclink.c:461 gnucash/gnome/dialog-doclink.c:506
 msgid "File Found"
@@ -1619,7 +1619,7 @@ msgstr "ビジネス項目を変更できません。"
 #: gnucash/gnome/gnc-plugin-page-invoice.c:1361
 #: gnucash/gnome/gnc-plugin-page-register.c:631
 msgid "Manage Document Link"
-msgstr ""
+msgstr "文書リンクを管理する"
 
 #: gnucash/gnome/dialog-doclink.c:690
 msgid "Transaction can not be modified."
@@ -1632,10 +1632,8 @@ msgstr "未定義"
 #. Translators: This is the label of a dialog box that lists all of the
 #. transaction that have files or URIs linked with them.
 #: gnucash/gnome/dialog-doclink.c:1010
-#, fuzzy
-#| msgid "Transaction Details"
 msgid "Transaction Document Links"
-msgstr "取引詳細"
+msgstr "取引の文書リンク"
 
 #: gnucash/gnome/dialog-doclink.c:1013
 #: gnucash/gnome/dialog-find-transactions2.c:157
@@ -1680,26 +1678,19 @@ msgid "Description"
 msgstr "説明"
 
 #: gnucash/gnome/dialog-doclink.c:1024
-#, fuzzy
-#| msgid ""
-#| "         To jump to the Business Item, double click on the entry in the "
-#| "id\n"
-#| " column, Association column to open the Association or Available to update"
 msgid ""
 "Double click on the entry in the Id column to jump to the Business Item.\n"
 "Double click on the entry in the Link column to open the Linked Document.\n"
 "Double click on the entry in the Available column to modify the document "
 "link."
 msgstr ""
-"         ビジネス項目へジャンプするには項目の ID 列を、\n"
-"関連付けを開くには関連付け列を、また更新するには利用可能列をダブルクリックし"
-"てください。"
+"項目の ID 列をダブルクリックするとビジネス項目へジャンプします。\n"
+"項目のリンク列をダブルクリックするとリンクされた文書を開きます。\n"
+"項目の利用可能列をダブルクリックすると文書リンクを変更できます。"
 
 #: gnucash/gnome/dialog-doclink.c:1033
-#, fuzzy
-#| msgid "Business Associations"
 msgid "Business Document Links"
-msgstr "ビジネスとの関連付け"
+msgstr "ビジネスの文書リンク"
 
 #: gnucash/gnome/dialog-employee.c:199
 msgid "You must enter a username."
@@ -2291,10 +2282,8 @@ msgid "View Expense Voucher"
 msgstr "立替払請求書を表示"
 
 #: gnucash/gnome/dialog-invoice.c:2484
-#, fuzzy
-#| msgid "No Linked Account"
 msgid "Open Linked Document:"
-msgstr "リンクされた勘定科目なし"
+msgstr "リンクされた文書を開く:"
 
 #: gnucash/gnome/dialog-invoice.c:2598 gnucash/gnome/dialog-invoice.c:2823
 msgid "Bill Information"
@@ -3534,16 +3523,12 @@ msgid "View and Delete Bayesian and Non Bayesian information"
 msgstr "ベイズおよび非ベイズ推定の情報を表示・削除します。"
 
 #: gnucash/gnome/gnc-plugin-basic-commands.c:216
-#, fuzzy
-#| msgid "Transaction amount"
 msgid "_Transaction Linked Documents"
-msgstr "取引金額"
+msgstr "取引にリンクされた文書(_T)"
 
 #: gnucash/gnome/gnc-plugin-basic-commands.c:217
-#, fuzzy
-#| msgid "View all Transaction Associations"
 msgid "View all Transaction Linked Documents"
-msgstr "取引との関連付けを全部見ます。"
+msgstr "取引にリンクされた文書を全部見ます。"
 
 #: gnucash/gnome/gnc-plugin-basic-commands.c:224
 msgid "_Tips Of The Day"
@@ -3863,13 +3848,11 @@ msgstr "立替払請求書の検索ダイアログを開きます。"
 
 #: gnucash/gnome/gnc-plugin-business.c:278
 msgid "Business Linked Documents"
-msgstr ""
+msgstr "ビジネスでリンクされた文書"
 
 #: gnucash/gnome/gnc-plugin-business.c:279
-#, fuzzy
-#| msgid "View all Business Associations"
 msgid "View all Linked Business Documents"
-msgstr "ビジネスとの関連付けを全部見ます。"
+msgstr "リンクされたビジネス文書を全部見ます。"
 
 #: gnucash/gnome/gnc-plugin-business.c:283
 msgid "Sales _Tax Table"
@@ -4214,7 +4197,7 @@ msgstr "削除"
 #: gnucash/gnome/gnc-plugin-page-register.c:1964
 #: gnucash/gnome/gnc-plugin-page-register.c:5068
 msgid "'Check & Repair' is currently running, do you want to abort it?"
-msgstr ""
+msgstr "「検査・修復」は現在実行中ですが、中止しますか?"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:520
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:526
@@ -4251,21 +4234,22 @@ msgid "Accounts"
 msgstr "勘定科目"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1429
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Account %s does not have the same currency as the one you're moving "
 "transactions from.\n"
 "Are you sure you want to do this?"
-msgstr "既存の取引を上書きしようとしています。本当に上書きしますか?"
+msgstr ""
+"勘定科目 %s は移動しようとしている取引と同じ通貨になっていません。\n"
+"本当にこれを実行しますか?"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1437
-#, fuzzy
 msgid "_Pick another account"
-msgstr "資金移動させる勘定科目を選択(_S)"
+msgstr "別の勘定科目を選択(_P)"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1438
 msgid "_Do it anyway"
-msgstr ""
+msgstr "構わずに実行する(_D)"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1521
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1657
@@ -4307,14 +4291,14 @@ msgid "All transactions in this account will be deleted."
 msgstr "この勘定科目内のすべての取引を削除します。"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1761
-#, fuzzy, c-format
+#, c-format
 msgid "Its sub-account will be moved to the account %s."
-msgstr "その子勘定科目をすべて勘定科目 %s に移動します。"
+msgstr "子勘定科目を勘定科目 %s に移動します。"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1767
-#, fuzzy, c-format
+#, c-format
 msgid "Its subaccount will be deleted."
-msgstr "その子勘定科目がすべて削除されます。"
+msgstr "子勘定科目が削除されます。"
 
 #: gnucash/gnome/gnc-plugin-page-account-tree.c:1771
 #, c-format
@@ -4348,7 +4332,7 @@ msgstr "予算を削除(_D)..."
 
 #: gnucash/gnome/gnc-plugin-page-budget.c:154
 msgid "Select this or another budget and delete it."
-msgstr ""
+msgstr "この予算または別の予算を選択して削除します。"
 
 #: gnucash/gnome/gnc-plugin-page-budget.c:158
 msgid "Budget _Options..."
@@ -4610,7 +4594,7 @@ msgstr "請求書の支払を行う(_P)"
 #: gnucash/gnome/gnc-plugin-page-invoice.c:366
 #: gnucash/gnome/gnc-plugin-page-register.c:300
 msgid "_Manage Document Link..."
-msgstr ""
+msgstr "文書リンクを管理(_M)..."
 
 #. Translators: This is a menu item that opens an external file or URI that may
 #. be linked to the current bill, invoice, transaction, or voucher using
@@ -4620,10 +4604,8 @@ msgstr ""
 #: gnucash/gnome/gnc-plugin-page-invoice.c:346
 #: gnucash/gnome/gnc-plugin-page-invoice.c:367
 #: gnucash/gnome/gnc-plugin-page-register.c:304
-#, fuzzy
-#| msgid "No Linked Account"
 msgid "_Open Linked Document"
-msgstr "リンクされた勘定科目なし"
+msgstr "リンクされた文書を開く(_O)"
 
 #: gnucash/gnome/gnc-plugin-page-invoice.c:310
 msgid "_Use as Default Layout for Customer Documents"
@@ -4774,10 +4756,8 @@ msgstr "この請求書の所有者の会社帳票ウィンドウを開きます
 #: gnucash/gnome/gnc-plugin-page-invoice.c:425
 #: gnucash/gnome/gnc-plugin-page-invoice.c:446
 #: gnucash/gnome/gnc-plugin-page-register.c:632
-#, fuzzy
-#| msgid "No Linked Account"
 msgid "Open Linked Document"
-msgstr "リンクされた勘定科目なし"
+msgstr "リンクされた文書を開きます。"
 
 #: gnucash/gnome/gnc-plugin-page-invoice.c:388
 msgid ""
@@ -4928,7 +4908,7 @@ msgstr "この貸方票の所有者の会社帳票ウィンドウを開きます
 
 #: gnucash/gnome/gnc-plugin-page-invoice.c:445
 msgid "Manage Document Link..."
-msgstr ""
+msgstr "文書リンクを管理..."
 
 #: gnucash/gnome/gnc-plugin-page-invoice.c:452
 #: gnucash/gnome/gnc-plugin-page-register2.c:498
@@ -5319,7 +5299,7 @@ msgstr ""
 msgid ""
 "Automatically clear individual transactions, so as to reach a certain "
 "cleared amount"
-msgstr "ある清算金額に達するまで各取引を自動清算します"
+msgstr "特定の清算金額に達するまで各取引を自動清算します。"
 
 #: gnucash/gnome/gnc-plugin-page-register2.c:377
 #: gnucash/gnome/gnc-plugin-page-register.c:495
@@ -5346,18 +5326,14 @@ msgstr "現在の取引の為替・交換レートを編集します。"
 #. with focus on the current transaction's entry in that register.
 #: gnucash/gnome/gnc-plugin-page-register2.c:387
 #: gnucash/gnome/gnc-plugin-page-register.c:513
-#, fuzzy
-#| msgid "Display the other account code?"
 msgid "_Jump to the other account"
-msgstr "相手勘定科目コードを表示するかどうかを指定します。"
+msgstr "相手勘定科目へジャンプ(_J)"
 
 #: gnucash/gnome/gnc-plugin-page-register2.c:388
 #: gnucash/gnome/gnc-plugin-page-register.c:514
-#, fuzzy
-#| msgid "Open a register report for the selected Transaction"
 msgid ""
 "Open a new register tab for the other account with focus on this transaction."
-msgstr "選択した取引の記録簿帳票を開きます。"
+msgstr "相手勘定科目の記録簿タブを開いてフォーカスをこの取引に合わせます。"
 
 #: gnucash/gnome/gnc-plugin-page-register2.c:392
 #: gnucash/gnome/gnc-plugin-page-register.c:518
@@ -5408,16 +5384,10 @@ msgstr "2 行(_D)"
 
 #: gnucash/gnome/gnc-plugin-page-register2.c:425
 #: gnucash/gnome/gnc-plugin-page-register.c:554
-#, fuzzy
-#| msgid ""
-#| "Show a second line with \"Action\", \"Notes\", and \"File Association\" "
-#| "for each transaction."
 msgid ""
 "Show a second line with \"Action\", \"Notes\", and \"Linked Document\" for "
 "each transaction."
-msgstr ""
-"各取引の \"アクション\"、\"備考\"、および \"ファイルとの関連付け\" を 2 行目"
-"に表示します。"
+msgstr "各取引の \"アクション\"、\"備考\"、および \"リンクされた文書\" を 2 行目に表示します。"
 
 #: gnucash/gnome/gnc-plugin-page-register2.c:430
 #, fuzzy
@@ -5679,26 +5649,20 @@ msgstr "%s をフィルター..."
 #. Translators: This is a menu item that will open the bill, invoice, or voucher
 #. that is posted to the current transaction if there is one.
 #: gnucash/gnome/gnc-plugin-page-register.c:307
-#, fuzzy
-#| msgid "Edit Invoice"
 msgid "Jump to Invoice"
-msgstr "得意先請求書を編集"
+msgstr "請求書へジャンプ"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:318
-#, fuzzy
-#| msgid "Associate a file with the current transaction"
 msgid "Add, change, or unlink the document linked with the current transaction"
-msgstr "ファイルを現在の取引に関連付けます。"
+msgstr "現在の取引にリンクする文書を追加、変更、または削除します。"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:319
-#, fuzzy
-#| msgid "Open Association for the current transaction"
 msgid "Open the linked document for the current transaction"
-msgstr "現在の取引との関連付け先を開きます。"
+msgstr "現在の取引にリンクされた文書を開きます。"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:320
 msgid "Jump to the linked bill, invoice, or voucher"
-msgstr ""
+msgstr "リンクされた仕入先請求書、得意先請求書、または立替払請求書へジャンプします。"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:409
 msgid "Remo_ve Other Splits"
@@ -5710,16 +5674,12 @@ msgid "_Sort By..."
 msgstr "ソート(_S)..."
 
 #: gnucash/gnome/gnc-plugin-page-register.c:500
-#, fuzzy
-#| msgid "Post Date"
 msgid "_Go to Date"
-msgstr "発送日"
+msgstr "日付へ移動(_G)"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:501
-#, fuzzy
-#| msgid "Do not print transactions out of specified dates."
 msgid "Move to the split at the specified date"
-msgstr "指定期間外の取引は印刷しません。"
+msgstr "指定された日付のスプリットへ移動します。"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:828
 msgid ""
@@ -5806,14 +5766,12 @@ msgid "A reversing entry has already been created for this transaction."
 msgstr "この取引に対する逆方向の取引はすでに作成済みです。"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4087
-#, fuzzy
 msgid "Reverse Transaction"
-msgstr "逆方向の取引を追加(_R)"
+msgstr "逆方向の取引"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4088
-#, fuzzy
 msgid "New Transaction Information"
-msgstr "取引情報"
+msgstr "新しい取引の情報"
 
 #. Translators: The %s is the name of the plugin page
 #: gnucash/gnome/gnc-plugin-page-register.c:4176
@@ -5827,17 +5785,15 @@ msgstr "%s をソート..."
 #: gnucash/gnome/gnc-plugin-page-register.c:4754
 #, c-format
 msgid "%s %s from %s, posted %s, amount %s"
-msgstr ""
+msgstr "%s %s 発行元 %s、発送日 %s、金額 %s"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4763
-#, fuzzy
-#| msgid "Select Account"
 msgid "Select document"
-msgstr "勘定科目を選択"
+msgstr "文書を選択してください"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4764
 msgid "Several documents are linked with this transaction. Please choose one:"
-msgstr ""
+msgstr "いくつかの文書がこの取引にリンクされています。一つ選んでください:"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4765
 #: gnucash/gnome-search/dialog-search.c:323
@@ -5846,10 +5802,8 @@ msgid "Select"
 msgstr "選択"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:4813
-#, fuzzy
-#| msgid "Post Date"
 msgid "Go to Date"
-msgstr "発送日"
+msgstr "日付へ移動"
 
 #: gnucash/gnome/gnc-plugin-page-register.c:5091
 #, c-format
@@ -6229,10 +6183,9 @@ msgid "This account register is read-only."
 msgstr "この勘定科目の記録簿は読出し専用です。"
 
 #: gnucash/gnome/gnc-split-reg2.c:938 gnucash/gnome/gnc-split-reg.c:2448
-#, fuzzy, c-format
-#| msgid "This account register is read-only."
+#, c-format
 msgid "The '%s' account register is read-only."
-msgstr "この勘定科目の記録簿は読出し専用です。"
+msgstr "勘定科目 '%s' の記録簿は読出し専用です。"
 
 #: gnucash/gnome/gnc-split-reg2.c:1003
 msgid ""
@@ -6378,10 +6331,8 @@ msgid "_Remove Splits"
 msgstr "スプリットを除去する(_R)"
 
 #: gnucash/gnome/gnc-split-reg.c:1299
-#, fuzzy
-#| msgid "Change a Transaction Association"
 msgid "Change a Transaction Linked Document"
-msgstr "取引との関連付け先を変更する"
+msgstr "取引にリンクされた文書を変更する"
 
 #: gnucash/gnome/gnc-split-reg.c:1440
 #: gnucash/gnome-utils/gnc-tree-control-split-reg.c:963
@@ -6453,14 +6404,13 @@ msgid ""
 msgstr ""
 
 #: gnucash/gnome/gnc-split-reg.c:2524
-#, fuzzy
 msgid ""
 "The transactions of this account may not be edited.\n"
 "If you want to edit transactions in this register, please open the account "
 "options and turn off the placeholder checkbox."
 msgstr ""
-"この勘定科目は編集できません。この記録簿の取引を編集したい場合は、勘定科目の"
-"オプションを開き、プレースホルダーのチェックボックスをオフにしてください。"
+"この勘定科目の取引は編集できません。\n"
+"この記録簿の取引を編集したい場合は、勘定科目のオプションを開き、プレースホルダーのチェックボックスをオフにしてください。"
 
 #: gnucash/gnome/gnc-split-reg.c:2531
 #, fuzzy
@@ -6625,10 +6575,8 @@ msgid "Business"
 msgstr "ビジネス"
 
 #: gnucash/gnome/window-autoclear.c:115
-#, fuzzy
-#| msgid "Created Transactions"
 msgid "Cleared Transactions"
-msgstr "作成した取引"
+msgstr "清算済取引"
 
 #: gnucash/gnome/window-reconcile2.c:417 gnucash/gnome/window-reconcile.c:458
 msgid "Interest Payment"
@@ -7288,7 +7236,7 @@ msgstr "このエンコードは有効でありません。"
 
 #: gnucash/gnome-utils/dialog-account.c:531
 msgid "Could not create opening balance."
-msgstr "開始残高を作成できませんでした"
+msgstr "開始残高を作成できませんでした。"
 
 #: gnucash/gnome-utils/dialog-account.c:739
 msgid "Give the children the same type?"
@@ -7348,13 +7296,11 @@ msgstr ""
 #: gnucash/gnome-utils/dialog-account.c:1331
 msgid ""
 "An account with opening balance already exists for the desired currency."
-msgstr ""
+msgstr "指定した通貨には開始残高の勘定科目が既に存在します。"
 
 #: gnucash/gnome-utils/dialog-account.c:1332
-#, fuzzy
-#| msgid "Cancel the current entry"
 msgid "Cannot change currency"
-msgstr "現在の項目をキャンセルします。"
+msgstr "通貨を変更できません"
 
 #: gnucash/gnome-utils/dialog-account.c:1419
 msgid ""
@@ -7555,7 +7501,7 @@ msgstr "既存"
 
 #: gnucash/gnome-utils/dialog-dup-trans.c:148
 msgid "Use +- keys to increment/decrement number"
-msgstr ""
+msgstr "+- キーを使って番号を増減させることができます。"
 
 #: gnucash/gnome-utils/dialog-dup-trans.c:297
 msgid "Action/Number"
@@ -8429,20 +8375,16 @@ msgid "Open _Read-Only"
 msgstr "読み取り専用で開く(_R)"
 
 #: gnucash/gnome-utils/gnc-file.c:853
-#, fuzzy
-#| msgid "_Create New File"
 msgid "Create _New File"
-msgstr "ファイルを新規作成する(_C)"
+msgstr "ファイルを新規作成する(_N)"
 
 #: gnucash/gnome-utils/gnc-file.c:856
 msgid "Open _Anyway"
 msgstr "構わずに開く(_A)"
 
 #: gnucash/gnome-utils/gnc-file.c:859
-#, fuzzy
-#| msgid "placeholder"
 msgid "Open _Folder"
-msgstr "プレースホルダー"
+msgstr "フォルダーを開く(_F)"
 
 #: gnucash/gnome-utils/gnc-file.c:865 gnucash/gnome-utils/gnc-main-window.c:310
 msgid "_Quit"
@@ -8514,16 +8456,12 @@ msgstr "あるべき場所"
 
 #: gnucash/gnome-utils/gnc-gnome-utils.c:510
 #: gnucash/gnome-utils/gnc-gnome-utils.c:550
-#, fuzzy
-#| msgid "GnuCash could not find the associated file."
 msgid "GnuCash could not find the linked document."
-msgstr "GnuCash は関連付けられたファイルを見つけることができませんでした。"
+msgstr "GnuCash はリンクされた文書を見つけることができませんでした。"
 
 #: gnucash/gnome-utils/gnc-gnome-utils.c:580
-#, fuzzy
-#| msgid "GnuCash could not open the associated file:"
 msgid "GnuCash could not open the linked document:"
-msgstr "GnuCash は関連付けられたファイルを開けませんでした:"
+msgstr "GnuCash はリンクされた文書を開けませんでした:"
 
 #. Translators: %s is a path to a database or any other url,
 #. like mysql://user@server.somewhere/somedb, https://www.somequotes.com/thequotes
@@ -8755,13 +8693,11 @@ msgstr "保存せずに閉じる(_W)"
 
 #: gnucash/gnome-utils/gnc-main-window.c:1437
 msgid "This window is closing and will not be restored."
-msgstr ""
+msgstr "このウィンドウを閉じようとしていますが復元できなくなります。"
 
 #: gnucash/gnome-utils/gnc-main-window.c:1443
-#, fuzzy
-#| msgid "Close this window"
 msgid "Close Window?"
-msgstr "このウィンドウを閉じる"
+msgstr "ウィンドウを閉じますか?"
 
 #. Translators: This string is shown in the window title if this
 #. document is, well, read-only.
@@ -9542,7 +9478,7 @@ msgstr "隠"
 #: gnucash/gnome-utils/gnc-tree-view-account.c:997
 msgctxt "Column header for 'Opening Balance'"
 msgid "O"
-msgstr ""
+msgstr "開"
 
 #. Translators: %s is a currency mnemonic.
 #: gnucash/gnome-utils/gnc-tree-view-account.c:1818
@@ -10044,13 +9980,6 @@ msgid "Report Generation Options"
 msgstr "帳票生成オプション"
 
 #: gnucash/gnucash-cli.cpp:104
-#, fuzzy
-#| msgid ""
-#| "Execute report related commands. The following commands are supported.\n"
-#| "\n"
-#| "  list: \tLists available reports.\n"
-#| "  show: \tDescribe the options modified in the named report.\n"
-#| "  run: \tRun the named report in the given GnuCash datafile.\n"
 msgid ""
 "Execute report related commands. The following commands are supported.\n"
 "\n"
@@ -10062,7 +9991,7 @@ msgstr ""
 "帳票関連のコマンドを実行する。 次のコマンドをサポート。\n"
 "\n"
 "  list: \t利用可能な帳票を一覧出力する。\n"
-"  show: \t指定の名前の帳票の中で変更されるオプションを詳細表示する。\n"
+"  show: \t指定の名前の帳票の中で変更されるオプションを詳細表示する。データファイルを指定すると保存されたオプションを詳細表示可能。\n"
 "  run: \t指定の GnuCash データファイルで 指定の名前の帳票を実行する。\n"
 
 #: gnucash/gnucash-cli.cpp:110
@@ -11849,16 +11778,10 @@ msgid "All transactions are expanded to show all splits."
 msgstr "すべての取引を展開してスプリットを表示します。"
 
 #: gnucash/gschemas/org.gnucash.gschema.xml.in:300
-#, fuzzy
-#| msgid ""
-#| "Show a second line with \"Action\", \"Notes\", and \"File Association\" "
-#| "for each transaction."
 msgid ""
 "Show a second line with \"Action\", \"Notes\", and \"Linked Documents\" for "
 "each transaction."
-msgstr ""
-"各取引の \"アクション\"、\"備考\"、および \"ファイルとの関連付け\" を 2 行目"
-"に表示します。"
+msgstr "各取引の \"アクション\"、\"備考\"、および \"リンクされた文書\" を 2 行目に表示します。"
 
 #: gnucash/gschemas/org.gnucash.gschema.xml.in:301
 #, fuzzy
@@ -12117,7 +12040,7 @@ msgstr ""
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:14
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:117
 msgid "Confirm Window Close"
-msgstr ""
+msgstr "ウィンドウを閉じるときに確認する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:15
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:118
@@ -12126,9 +12049,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:19
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:122
-#, fuzzy
 msgid "Commit changes to a invoice entry"
-msgstr "変更を得意先請求書項目に対して確定する"
+msgstr "請求書項目に対する変更を確定する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:20
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:123
@@ -12139,9 +12061,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:24
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:127
-#, fuzzy
 msgid "Duplicating a changed invoice entry"
-msgstr "変更した得意先請求書項目の複製"
+msgstr "変更した請求書項目の複製"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:25
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:128
@@ -12162,9 +12083,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:34
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:137
-#, fuzzy
 msgid "Delete a commodity with price quotes"
-msgstr "商品と価格を削除する"
+msgstr "相場価格の付いた商品を削除する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:35
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:138
@@ -12176,7 +12096,7 @@ msgstr ""
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:39
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:142
 msgid "Delete multiple price quotes"
-msgstr "複数の相場表価格を削除する"
+msgstr "複数の相場価格を削除する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:40
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:143
@@ -12187,9 +12107,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:44
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:147
-#, fuzzy
 msgid "Replace existing price"
-msgstr "既存の勘定科目色をすべて置き換える"
+msgstr "既存の価格を置き換える"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:45
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:148
@@ -12199,9 +12118,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:49
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:152
-#, fuzzy
 msgid "Edit account payable/accounts receivable register"
-msgstr "この記録簿の主勘定科目を編集する"
+msgstr "買掛金・売掛金の記録簿を編集する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:50
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:153
@@ -12307,9 +12225,8 @@ msgstr ""
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:94
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:197
-#, fuzzy
 msgid "Delete a transaction with reconciled splits"
-msgstr "照合済あるいは清算済の取引を無効にすることはできません。"
+msgstr "照合済スプリットを含む取引を削除する"
 
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:95
 #: gnucash/gschemas/org.gnucash.warnings.gschema.xml.in:198
@@ -14516,7 +14433,7 @@ msgstr "隠し勘定科目を表示する(_H)"
 
 #: gnucash/gtkbuilder/dialog-account.glade:972
 msgid "Show accounts which have the option \"Hidden\" checked."
-msgstr " \"隠し勘定科目\" オプションにチェックが入った勘定科目を表示します。"
+msgstr "\"隠し勘定科目\" オプションにチェックが入った勘定科目を表示します。"
 
 #: gnucash/gtkbuilder/dialog-account.glade:986
 msgid "Show _unused accounts"
@@ -14602,8 +14519,6 @@ msgstr ""
 "のダイアログを再度開くことができます。"
 
 #: gnucash/gtkbuilder/dialog-account.glade:1476
-#, fuzzy
-#| msgid "Automatic _interest transfer"
 msgid "Auto _interest transfer"
 msgstr "自動利子入力(_I)"
 
@@ -14621,8 +14536,6 @@ msgstr ""
 "割り当ててください。"
 
 #: gnucash/gtkbuilder/dialog-account.glade:1509
-#, fuzzy
-#| msgid "Opening Balance"
 msgid "Opening balance"
 msgstr "開始残高"
 
@@ -14630,7 +14543,7 @@ msgstr "開始残高"
 msgid ""
 "This account holds opening balance transactions. Only one account per "
 "commodity can hold opening balance transactions."
-msgstr ""
+msgstr "この勘定科目は開始残高の取引を保持します。商品につき一つの勘定科目だけが開始残高の取引を保持することができます。"
 
 #: gnucash/gtkbuilder/dialog-account.glade:1560
 msgid "<b>Acco_unt Type</b>"
@@ -15303,52 +15216,32 @@ msgid "Question"
 msgstr "質問"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:49
-#, fuzzy
-#| msgid "Change Association path head"
 msgid "Change Linked Document path head"
-msgstr "関連付けパスの先頭部分を変更する"
+msgstr "リンクされた文書の先頭部分を変更する"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:85
-#, fuzzy
-#| msgid ""
-#| "Existing relative file path associations will be converted to absolute "
-#| "ones by combining them with the existing path head unless box unticked."
 msgid ""
 "Existing relative file path links will be converted to absolute ones by "
 "combining them with the existing path head unless box unticked."
-msgstr ""
-"既存の相対ファイルパスの関連付けは、チェックボックスを外さない限り既存のパス"
-"先頭部分と結合して絶対パスに変換されます。"
+msgstr "既存の相対ファイルパスのリンクは、チェックボックスを外さない限り既存のパス先頭部分と結合して絶対パスに変換されます。"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:140
-#, fuzzy
-#| msgid ""
-#| "Existing absolute file path associations will be converted to relative "
-#| "ones by comparing them to the new path head unless box unticked."
 msgid ""
 "Existing absolute file path links will be converted to relative ones by "
 "comparing them to the new path head unless box unticked."
-msgstr ""
-"既存の絶対ファイルパスの関連付けは、チェックボックスを外さない限り新規のパス"
-"先頭部分と比較して相対パスに変換されます。"
+msgstr "既存の絶対ファイルパスのリンクは、チェックボックスを外さない限り新規のパス先頭部分と比較して相対パスに変換されます。"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:178
-#, fuzzy
-#| msgid "Note: Only Associations that are not read-only will be changed."
 msgid "Note: Only Document Links that are not read-only will be changed."
-msgstr "備考: 読み取り専用でない関連付けのみ変更されます。"
+msgstr "備考: 読み取り専用でない文書リンクのみ変更されます。"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:279
-#, fuzzy
-#| msgid "Linked Details"
 msgid "Linked _File"
-msgstr "リンク詳細"
+msgstr "リンクされたファイル(_F)"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:295
-#, fuzzy
-#| msgid "Picture Location"
 msgid "Linked _Location"
-msgstr "画像の場所"
+msgstr "リンクされた場所(_L)"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:380
 msgid "Enter URL like http://www.gnucash.org"
@@ -15359,42 +15252,32 @@ msgid "Location does not start with a valid scheme"
 msgstr "場所の先頭が有効なスキームになっていません。"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:504
-#, fuzzy
-#| msgid "Reload and Locate _Associations"
 msgid "Reload and Locate Linked Documents"
-msgstr "再読込して関連付けを確認(_L)"
+msgstr "再読込してリンクされた文書を確認(_L)"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:518
 msgid "_Reload"
 msgstr "再読込(_R)"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:532
-#, fuzzy
-#| msgid "No Linked Account"
 msgid "_Locate Linked Documents"
-msgstr "リンクされた勘定科目なし"
+msgstr "リンクされた文書を確認(_L)"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:572
-#, fuzzy
-#| msgid "No Linked Account"
 msgid "All Linked Documents"
-msgstr "リンクされた勘定科目なし"
+msgstr "リンクされた文書すべて"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:626
 msgid "Id"
 msgstr "ID"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:654
-#, fuzzy
-#| msgid "Linked Details"
 msgid "Linked Document"
-msgstr "リンク詳細"
+msgstr "リンクされた文書"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:671
-#, fuzzy
-#| msgid "Available ?"
 msgid "Available"
-msgstr "利用可能?"
+msgstr "利用可能"
 
 #: gnucash/gtkbuilder/dialog-doclink.glade:686
 msgid "Relative"
@@ -15408,6 +15291,9 @@ msgid ""
 "Double click on the entry in the Available column to modify the document "
 "link."
 msgstr ""
+"項目の説明列をダブルクリックすると取引へジャンプします。\n"
+"項目のリンク列をダブルクリックするとリンクされた文書を開きます。\n"
+"項目の利用可能列をダブルクリックすると文書リンクを変更できます。"
 
 #: gnucash/gtkbuilder/dialog-employee.glade:166
 msgid ""
@@ -15878,16 +15764,12 @@ msgstr ""
 "ダウンロードされた取引一覧 (ソースのスプリットと一致した情報を表示します)"
 
 #: gnucash/gtkbuilder/dialog-import.glade:929
-#, fuzzy
-#| msgid "Show the _Account column"
 msgid "Show _Account column"
 msgstr "勘定科目列を表示する(_A)"
 
 #: gnucash/gtkbuilder/dialog-import.glade:945
-#, fuzzy
-#| msgid "Show the symbol column"
 msgid "Show _Memo column"
-msgstr "記号の列を表示"
+msgstr "摘要列を表示する(_M)"
 
 #: gnucash/gtkbuilder/dialog-import.glade:961
 msgid "Show _matched information"
@@ -15916,10 +15798,8 @@ msgid "(owner)"
 msgstr "(所有者)"
 
 #: gnucash/gtkbuilder/dialog-invoice.glade:418
-#, fuzzy
-#| msgid "Open imported documents in tabs"
 msgid "Open Document Link"
-msgstr "インポートされた文書をタブで開く"
+msgstr "文書リンクを開く"
 
 #: gnucash/gtkbuilder/dialog-invoice.glade:535
 #: gnucash/gtkbuilder/dialog-invoice.glade:1113
@@ -16246,10 +16126,8 @@ msgid "Locale"
 msgstr "ロケール"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:133
-#, fuzzy
-#| msgid "_Resume"
 msgid "_Reset"
-msgstr "再開(_R)"
+msgstr "リセット(_R)"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:178
 #: gnucash/gtkbuilder/dialog-preferences.glade:579
@@ -16262,6 +16140,8 @@ msgid ""
 "window\n"
 "Press 'Close' to return to the preference window\n"
 msgstr ""
+"'リセット' をクリックすると元の勘定科目区切り文字に戻して設定ウィンドウを閉じます。\n"
+"'閉じる' をクリックすると設定ウィンドウに戻ります。\n"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:240
 msgid "GnuCash Preferences"
@@ -16517,7 +16397,7 @@ msgstr "小数点以下に自動で挿入される桁数です。"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1362
 msgid "Numbers, Date, Time"
-msgstr ""
+msgstr "数値・日付・時刻"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1391
 msgid "Perform account list _setup on new file"
@@ -16622,16 +16502,12 @@ msgid "seconds"
 msgstr "秒"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1847
-#, fuzzy
-#| msgid "Path head for Associated Files"
 msgid "Path head for Linked File Relative Paths"
-msgstr "関連付けられたファイルのパスの先頭部分です。"
+msgstr "リンクされたファイルの相対パスの先頭部分です。"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1865
-#, fuzzy
-#| msgid "Path head for files is,"
 msgid "Path head for Linked Files Relative Paths"
-msgstr "ファイルパスの先頭:"
+msgstr "リンクされたファイルの相対パスの先頭部分"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1894
 msgid "Enable horizontal grid lines on table displays"
@@ -16658,10 +16534,8 @@ msgstr ""
 "ページなどです。"
 
 #: gnucash/gtkbuilder/dialog-preferences.glade:1931
-#, fuzzy
-#| msgid "<b>Files</b>"
 msgid "<b>Linked Files</b>"
-msgstr "<b>ファイル</b>"
+msgstr "<b>リンクされたファイル</b>"
 
 #. Preferences->Online Banking:Generic
 #: gnucash/gtkbuilder/dialog-preferences.glade:2026
@@ -17561,7 +17435,7 @@ msgstr "検索(_F)"
 
 #: gnucash/gtkbuilder/dialog-search.glade:134
 msgid " Search "
-msgstr "検索 "
+msgstr " 検索 "
 
 #: gnucash/gtkbuilder/dialog-search.glade:207
 msgid "Search for items where"
@@ -18628,10 +18502,8 @@ msgstr "取引番号(_T)"
 
 #: gnucash/gtkbuilder/gnc-plugin-page-register2.glade:161
 #: gnucash/gtkbuilder/gnc-plugin-page-register.glade:719
-#, fuzzy
-#| msgid "Delete the current entry"
 msgid "Keep Linked Document Entry"
-msgstr "現在の項目を削除します。"
+msgstr "リンクされた文書の項目を維持する"
 
 #. Filter register by... Dialog
 #: gnucash/gtkbuilder/gnc-plugin-page-register2.glade:213
@@ -18846,10 +18718,8 @@ msgid "Show _zero balance owners"
 msgstr "残高 0 の所有者を表示する"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:71
-#, fuzzy
-#| msgid "Auto-clear"
 msgid "About Auto-Clear"
-msgstr "自動清算"
+msgstr "自動清算について"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:86
 msgid ""
@@ -18857,12 +18727,12 @@ msgid ""
 "are cleared, given an ending balance. For example, said ending balance can "
 "be the current balance given by your bank online."
 msgstr ""
+"このダイアログを使うと、期末残高を指定したら GnuCash "
+"が自動的に清算対象の取引を見つけてくれます。例えば、ここで指定する期末残高はオンラインバンキングの現在の残高でもよいでしょう。"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:101
-#, fuzzy
-#| msgid "Fraction"
 msgid "Caution!"
-msgstr "小数部"
+msgstr "注意!"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:116
 msgid ""
@@ -18870,6 +18740,7 @@ msgid ""
 "than approximately 20. In that case please clear at least some of them "
 "manually."
 msgstr ""
+"このツールは未清算スプリットが約 20 個以上あると遅くなったり止まったりするかもしれません。そのときは少なくともその一部を手動で清算してください。"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:138
 #: gnucash/gtkbuilder/window-reconcile.glade:117
@@ -18877,14 +18748,12 @@ msgid "_Ending Balance"
 msgstr "期末残高(_E)"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:177
-#, fuzzy
-#| msgid "_Review created transactions"
 msgid "_Review cleared splits"
-msgstr "作成された取引を確認する(_R)"
+msgstr "清算済取引を確認する(_R)"
 
 #: gnucash/gtkbuilder/window-autoclear.glade:181
 msgid "Select this option to open a register tab with newly cleared splits."
-msgstr ""
+msgstr "このオプションを選択すると新たに清算済になったスプリットの記録簿タブを開きます。"
 
 #: gnucash/gtkbuilder/window-reconcile.glade:71
 msgid "<b>Reconcile Information</b>"
@@ -22249,7 +22118,7 @@ msgstr "取引の説明"
 #: gnucash/report/trep-engine.scm:1292 gnucash/report/trep-engine.scm:1293
 msgctxt "Column header for 'Document Link'"
 msgid "L"
-msgstr ""
+msgstr "リ"
 
 #: gnucash/register/ledger-core/split-register-layout.c:711
 #: gnucash/register/ledger-core/split-register-layout.c:751
@@ -22569,8 +22438,6 @@ msgid "Can't save style sheet"
 msgstr "スタイルシートが保存できません"
 
 #: gnucash/report/html-utilities.scm:274 gnucash/report/html-utilities.scm:291
-#, fuzzy
-#| msgid "Exchange rate"
 msgid "Exchange rate"
 msgid_plural "Exchange rates"
 msgstr[0] "為替レート"
@@ -25436,9 +25303,8 @@ msgid "Common Currency"
 msgstr "共通の通貨"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:117
-#, fuzzy
 msgid "Convert all amounts to a single currency."
-msgstr "すべての取引を共通の通貨に変換します。"
+msgstr "すべての金額を単一の通貨に変換します。"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:123
 #: gnucash/report/trep-engine.scm:104
@@ -25482,9 +25348,8 @@ msgid "Total For "
 msgstr "合計"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:860
-#, fuzzy
 msgid "missing"
-msgstr "手数料"
+msgstr "不明"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:1106
 #: libgnucash/engine/Account.cpp:4363
@@ -25497,15 +25362,13 @@ msgid "Liability"
 msgstr "負債"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:1127
-#, fuzzy
 msgid "Liability and Equity"
-msgstr "負債/純資産(_L)"
+msgstr "負債および純資産"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:1145
 #: gnucash/report/reports/standard/balsheet-pnl.scm:1294
-#, fuzzy
 msgid "Exchange Rates"
-msgstr "為替・交換レート:"
+msgstr "為替レート"
 
 #: gnucash/report/reports/standard/balsheet-pnl.scm:1155
 #: gnucash/report/reports/standard/budget-barchart.scm:157
@@ -25730,10 +25593,9 @@ msgstr "帳票を折れ線グラフで表示します。"
 #. Translators: Bgt and Act refer to budgeted and
 #. actual total amounts.
 #: gnucash/report/reports/standard/budget-barchart.scm:216
-#, fuzzy, scheme-format
-#| msgid "~a: ~a - ~a"
+#, scheme-format
 msgid "Bgt: ~a Act: ~a"
-msgstr "~a: ~a - ~a"
+msgstr "予算: ~a 実績: ~a"
 
 #: gnucash/report/reports/standard/budget-barchart.scm:222
 msgid "Actual"
@@ -27403,16 +27265,12 @@ msgid "Debits"
 msgstr "借方"
 
 #: gnucash/report/reports/standard/new-owner-report.scm:59
-#, fuzzy
-#| msgid "Documents"
 msgid "Document Links"
-msgstr "文書"
+msgstr "文書リンク"
 
 #: gnucash/report/reports/standard/new-owner-report.scm:60
-#, fuzzy
-#| msgid "Transactions"
 msgid "Transaction Links"
-msgstr "取引"
+msgstr "取引リンク"
 
 #: gnucash/report/reports/standard/new-owner-report.scm:91
 #: gnucash/report/reports/standard/owner-report.scm:87
@@ -27515,9 +27373,8 @@ msgstr ""
 "請求書では支払一覧を表示し、支払では請求書番号と金額の一覧を表示します。"
 
 #: gnucash/report/reports/standard/new-owner-report.scm:948
-#, fuzzy
 msgid "Display document link?"
-msgstr "勘定科目をハイパーリンクとして表示する"
+msgstr "文書リンクを表示するかどうかを指定します。"
 
 #: gnucash/report/reports/standard/new-owner-report.scm:1076
 #, fuzzy
@@ -27888,16 +27745,13 @@ msgid "The receivables account you wish to examine."
 msgstr "検査したい売掛金勘定科目です。"
 
 #: gnucash/report/reports/standard/reconcile-report.scm:59
-#, fuzzy
 msgid ""
 "The reconcile report is designed to be similar to the formal reconciliation "
 "tool.  Please select the account from Report Options. Please note the dates "
 "specified in the options will apply to the Reconciliation Date."
 msgstr ""
-"この照合帳票は正式な照合ツールに似せた作りになっています。\n"
-"帳票オプションで勘定科目を選択してください。なお、オプションで指定した日付"
-"が\n"
-"照合日に設定されます。"
+"この照合帳票は正式な照合ツールに似せた作りになっています。帳票オプションで勘定科目を選択してください。なお、オプションで指定した日付が照合日に設定されます"
+"。"
 
 #: gnucash/report/reports/standard/reconcile-report.scm:103
 msgid "Reconciliation Report"
@@ -29387,10 +29241,8 @@ msgid "Display the other account code?"
 msgstr "相手勘定科目コードを表示するかどうかを指定します。"
 
 #: gnucash/report/trep-engine.scm:980
-#, fuzzy
-#| msgid "Display the transaction amount?"
 msgid "Display the transaction linked document"
-msgstr "取引の金額を表示するかどうかを指定します。"
+msgstr "取引にリンクされた文書を表示するかどうかを指定します。"
 
 #: gnucash/report/trep-engine.scm:983
 msgid "Display a subtotal summary table."
@@ -30065,11 +29917,11 @@ msgstr ""
 
 #: libgnucash/app-utils/gnc-ui-balances.c:407
 msgid "Account is already at Auto-Clear Balance."
-msgstr ""
+msgstr "勘定科目は既に自動清算残高になっています。"
 
 #: libgnucash/app-utils/gnc-ui-balances.c:451
 msgid "Too many uncleared splits"
-msgstr ""
+msgstr "未清算スプリットが多すぎます。"
 
 #: libgnucash/app-utils/gnc-ui-balances.c:467
 msgid "The selected amount cannot be cleared."
