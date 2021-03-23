@@ -34,7 +34,11 @@
 #ifndef GNC_BUSINESS_H_
 #define GNC_BUSINESS_H_
 
+#ifdef __cplusplus
+extern "C++" {
 #include <glib.h>
+}
+#endif
 #include "qof.h"
 #include "Account.h"
 
@@ -81,7 +85,7 @@ typedef GList OwnerList;
  * book, but each object is wrapped in a GncOwner object.
  *
  * The wrapping was done by qofOwnerSetEntity(), hence the owner will
- * contain data only for {CUSTOMER, JOB, VERNDOR, EMPLOYEE}, otherwise
+ * contain data only for {CUSTOMER, JOB, VENDOR, EMPLOYEE}, otherwise
  * the owner will be of type GNC_OWNER_NONE and not contain the
  * original data. */
 OwnerList * gncBusinessGetOwnerList (QofBook *book, QofIdTypeConst type_name,

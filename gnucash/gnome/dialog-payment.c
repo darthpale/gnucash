@@ -1004,6 +1004,7 @@ gnc_payment_ok_cb (G_GNUC_UNUSED GtkWidget *widget, gpointer data)
 
             gnc_xfer_dialog_select_to_account(xfer, pw->xfer_acct);
             gnc_xfer_dialog_set_amount(xfer, pw->amount_tot);
+            gnc_xfer_dialog_set_date (xfer, t);
 
             /* All we want is the exchange rate so prevent the user from thinking
                it makes sense to mess with other stuff */
@@ -1012,7 +1013,9 @@ gnc_payment_ok_cb (G_GNUC_UNUSED GtkWidget *widget, gpointer data)
             gnc_xfer_dialog_hide_from_account_tree(xfer);
             gnc_xfer_dialog_hide_to_account_tree(xfer);
             gnc_xfer_dialog_is_exchange_dialog(xfer, &exch);
-            gnc_xfer_dialog_run_until_done(xfer);
+
+            if (!gnc_xfer_dialog_run_until_done(xfer))
+                return; /* If the user cancels, return to the payment dialog without changes */
         }
 
         /* Perform the payment */
@@ -1037,6 +1040,7 @@ gnc_payment_ok_cb (G_GNUC_UNUSED GtkWidget *widget, gpointer data)
         GList *splits = NULL;
         splits = g_list_append(splits, split);
         gnc_ui_print_check_dialog_create(NULL, splits);
+        g_list_free (splits);
     }
 
     gnc_ui_payment_window_destroy (pw);
@@ -1707,7 +1711,7 @@ static GList *select_txn_lots (GtkWindow *parent, Transaction *txn, Account **po
                                          GTK_BUTTONS_CANCEL,
                                          _("The transaction has at least one split in a business account that is not part of a business transaction.\n"
                                          "If you continue these splits will be ignored:\n\n%s\n"
-                                         "Do you wish to continue and ignore these splits ?"),
+                                         "Do you wish to continue and ignore these splits?"),
                                          split_str);
         gtk_dialog_add_buttons (GTK_DIALOG(dialog),
                                 _("Continue"), GTK_BUTTONS_OK, NULL);

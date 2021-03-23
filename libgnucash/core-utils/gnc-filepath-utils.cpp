@@ -26,6 +26,11 @@
  * @author Copyright (c) 2000 Dave Peticolas
  */
 
+#include <glib.h>
+#include <glib/gi18n.h>
+#include <glib/gprintf.h>
+#include <glib/gstdio.h>
+
 extern "C" {
 #include <config.h>
 
@@ -35,10 +40,6 @@ extern "C" {
 #include <Shlobj.h>
 #endif
 
-#include <glib.h>
-#include <glib/gi18n.h>
-#include <glib/gprintf.h>
-#include <glib/gstdio.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -462,7 +463,7 @@ copy_recursive(const bfs::path& src, const bfs::path& dest)
     }
     catch(const bfs::filesystem_error& ex)
     {
-        g_warning("An error occured while trying to migrate the user configation from\n%s to\n%s"
+        g_warning("An error occurred while trying to migrate the user configation from\n%s to\n%s"
                   "(Error: %s)",
                   src.string().c_str(), gnc_userdata_home_str.c_str(),
                   ex.what());

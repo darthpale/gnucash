@@ -301,14 +301,16 @@
 
 ;; input: list of html-text elements
 ;; output: a cell with html-text interleaved with <br> tags
-(define (list->cell lst)
+(define* (list->cell lst #:optional skip-empty?)
   (let lp ((lst lst) (result '()))
     (match lst
       (() (apply gnc:make-html-text result))
+      (("" . rest) (=> fail) (if skip-empty? (lp rest result) (fail)))
       ((elt . rest) (lp rest (cons* elt (gnc:html-markup-br) result))))))
 
-(define (splits->desc splits)
-  (list->cell (map (compose gnc:html-string-sanitize xaccSplitGetMemo) splits)))
+(define* (splits->desc splits #:optional skip-empty?)
+  (list->cell (map (compose gnc:html-string-sanitize xaccSplitGetMemo) splits)
+              skip-empty?))
 
 (define (make-aging-table splits to-date payable? date-type currency)
   (let ((table (gnc:make-html-table))
@@ -739,6 +741,8 @@
       (gnc:split-anchor-text split)
       (gnc:make-gnc-monetary currency amount))))
 
+  (define seen-txns (make-hash-table))
+
   (let lp ((printed? #f)
            (odd-row? #t)
            (splits splits)
@@ -764,6 +768,9 @@
        'attribute (list "cellpadding" 4))
       table)
 
+     ((hash-ref seen-txns (xaccSplitGetParent (car splits)))
+      (lp printed? odd-row? (cdr splits) invalid-splits total debit credit tax sale))
+
      ;; not an invoice/payment. skip transaction.
      ((not (or (txn-is-invoice? (xaccSplitGetParent (car splits)))
                (txn-is-payment? (xaccSplitGetParent (car splits)))))
@@ -785,6 +792,7 @@
      ((< (xaccTransGetDate (xaccSplitGetParent (car splits))) start-date)
       (let* ((txn (xaccSplitGetParent (car splits)))
              (value (AP-negate (xaccTransGetAccountAmount txn acc))))
+        (hash-set! seen-txns txn #t)
         (lp printed? odd-row? (cdr splits) invalid-splits (+ total value)
             debit credit tax sale)))
 
@@ -797,6 +805,7 @@
 
      ;; start printing txns.
      ((txn-is-invoice? (xaccSplitGetParent (car splits)))
+      (hash-set! seen-txns (xaccSplitGetParent (car splits)) #t)
       (let* ((split (car splits))
              (txn (xaccSplitGetParent split))
              (date (xaccTransGetDate txn))
@@ -831,6 +840,7 @@
             (+ sale (CN-negate gncInvoiceGetTotalSubtotal)))))
 
      ((txn-is-payment? (xaccSplitGetParent (car splits)))
+      (hash-set! seen-txns (xaccSplitGetParent (car splits)) #t)
       (let* ((split (car splits))
              (txn (xaccSplitGetParent split))
              (date (xaccTransGetDate txn))
@@ -841,7 +851,7 @@
          table odd-row? used-columns date #f
          (split->reference split)
          (split->type-str split payable?)
-         (splits->desc (xaccTransGetAPARAcctSplitList txn #t))
+         (splits->desc (xaccTransGetAPARAcctSplitList txn #t) #t)
          #f currency (+ total value)
          (and (>= orig-value 0) (amount->anchor split orig-value))
          (and (< orig-value 0) (amount->anchor split (- orig-value)))
@@ -1032,10 +1042,7 @@ invoices and amounts.")))))
     (gnc:option-value
      (gnc:lookup-option options section name)))
 
-  (let* ((accounts (filter (compose xaccAccountIsAPARType xaccAccountGetType)
-                           (gnc-account-get-descendants-sorted
-                            (gnc-get-current-root-account))))
-         (start-date (gnc:time64-start-day-time
+  (let* ((start-date (gnc:time64-start-day-time
                       (gnc:date-option-absolute-time
                        (opt-val gnc:pagename-general optname-from-date))))
          (end-date (gnc:time64-end-day-time
@@ -1050,18 +1057,18 @@ invoices and amounts.")))))
          (owner-descr (owner-string type))
          (date-type (opt-val gnc:pagename-general optname-date-driver))
          (owner (opt-val owner-page owner-descr))
-         (payable? (memv (gncOwnerGetType (gncOwnerGetEndOwner owner))
-                         (list GNC-OWNER-VENDOR GNC-OWNER-EMPLOYEE)))
+         (acct-type (if (eqv? (gncOwnerGetType (gncOwnerGetEndOwner owner))
+                              GNC-OWNER-CUSTOMER)
+                        ACCT-TYPE-RECEIVABLE ACCT-TYPE-PAYABLE))
+         (accounts (filter (lambda (a) (eqv? (xaccAccountGetType a) acct-type))
+                           (gnc-account-get-descendants-sorted
+                            (gnc-get-current-root-account))))
+         (payable? (eqv? ACCT-TYPE-PAYABLE acct-type))
          (query (qof-query-create-for-splits))
          (document (gnc:make-html-document))
          (table (gnc:make-html-table))
          (section-headings (make-section-heading-list used-columns owner-descr))
-         (headings (make-heading-list
-                    used-columns link-option
-                    (if (eqv? (gncOwnerGetType (gncOwnerGetEndOwner owner))
-                              GNC-OWNER-CUSTOMER)
-                        ACCT-TYPE-RECEIVABLE
-                        ACCT-TYPE-PAYABLE)))
+         (headings (make-heading-list used-columns link-option acct-type))
          (report-title (string-append (G_ owner-descr) " " (G_ "Report"))))
 
     (cond
@@ -1083,7 +1090,7 @@ invoices and amounts.")))))
      (else
       (setup-query query owner accounts end-date (eqv? GNC-OWNER-JOB type))
 
-      (let ((splits (xaccQueryGetSplitsUniqueTrans query)))
+      (let ((splits (qof-query-run query)))
         (qof-query-destroy query)
 
         (gnc:html-document-set-headline!

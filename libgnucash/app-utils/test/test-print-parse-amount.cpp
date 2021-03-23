@@ -18,12 +18,13 @@
  *                                                                  *
 \********************************************************************/
 
+#include <glib.h>
+#include <glib/gprintf.h>
+
 extern "C"
 {
 #include <config.h>
-#include <glib.h>
 #include <stdlib.h>
-#include <glib/gprintf.h>
 
 #include "gnc-ui-util.h"
 #include "gnc-numeric.h"

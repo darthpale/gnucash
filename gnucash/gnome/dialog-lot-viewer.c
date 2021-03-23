@@ -228,12 +228,13 @@ lv_show_splits_free (GNCLotViewer *lv)
         Split *split = node->data;
         if (NULL == xaccSplitGetLot(split))
         {
-            filtered_list = g_list_append(filtered_list, split);
+            filtered_list = g_list_prepend (filtered_list, split);
         }
     }
 
     /* display list */
-    gnc_split_viewer_fill(lv, lv->split_free_store, filtered_list);
+    gnc_split_viewer_fill(lv, lv->split_free_store, g_list_reverse (filtered_list));
+    g_list_free (filtered_list);
 }
 
 /* ======================================================================== */
@@ -700,9 +701,11 @@ lv_add_split_to_lot_cb (GtkWidget *widget, GNCLotViewer * lv)
     split = lv_get_selected_split(lv, lv->split_free_view);
     if ( NULL == split ) return;
 
+    gnc_suspend_gui_refresh();
     xaccAccountBeginEdit(lv->account);
     gnc_lot_add_split(lv->selected_lot, split);
     xaccAccountCommitEdit(lv->account);
+    gnc_resume_gui_refresh();
 
     lv_refresh(lv);
 }
@@ -719,9 +722,11 @@ lv_remove_split_from_lot_cb (GtkWidget *widget, GNCLotViewer * lv)
     if ( FALSE == lv_can_remove_split_from_lot(split, lv->selected_lot) )
         return;
 
+    gnc_suspend_gui_refresh();
     xaccAccountBeginEdit(lv->account);
     gnc_lot_remove_split(lv->selected_lot, split);
     xaccAccountCommitEdit(lv->account);
+    gnc_resume_gui_refresh();
 
     lv_refresh(lv);
 }
@@ -750,7 +755,7 @@ lv_response_cb (GtkDialog *dialog, gint response, gpointer data)
     case RESPONSE_VIEW:
         if (NULL == lot)
             return;
-        printf ("UNIMPLEMENTED: need to display register showing only this one lot \n");
+        printf ("UNIMPLEMENTED: need to display register showing only this one lot.\n");
         break;
 
     case RESPONSE_DELETE:

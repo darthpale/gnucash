@@ -1,13 +1,13 @@
 # Croatian translation of GNUCash glossary.
 # Copyright (C) 2019 Free Software Foundation, Inc.
-# Milo Ivir <mail@milotype.de>, 2019., 2020.
+# Milo Ivir <mail@milotype.de>, 2019., 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: GnuCash Glossary\n"
-"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
-"product=GnuCash&component=Translations\n"
-"POT-Creation-Date: 2020-12-30 10:07+0100\n"
-"PO-Revision-Date: 2020-12-19 19:43+0000\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
+"cgi?product=GnuCash&component=Translations\n"
+"POT-Creation-Date: 2021-01-10 08:00+0100\n"
+"PO-Revision-Date: 2021-01-10 22:09+0000\n"
 "Last-Translator: Milo Ivir <mail@milotype.de>\n"
 "Language-Team: Croatian <https://hosted.weblate.org/projects/gnucash/"
 "glossary/hr/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.4-dev\n"
+"X-Generator: Weblate 4.4.1-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
@@ -27,7 +27,7 @@ msgstr ""
 
 #. "Opening and closing quote symbols and optionally their key combos like [altgr]+[Y]/[X]. Define the preferred style of quotation, see https://en.wikipedia.org/wiki/Quotation_mark#Summary_table"
 msgid "\"\""
-msgstr ""
+msgstr "„“"
 
 #. "A detailed record of money spent and received"
 msgid "account"
@@ -333,6 +333,10 @@ msgstr "valuta"
 msgid "Custom"
 msgstr "Prilagođeno"
 
+#. "Compact, well-structured presentation of informations. See https://en.wikipedia.org/wiki/Dashboard_(business)"
+msgid "dashboard"
+msgstr "pregledna ploča"
+
 #. "The backend where the data is stored."
 msgid "database"
 msgstr "baza podataka"
@@ -383,11 +387,11 @@ msgstr "poveznica na dokument"
 
 #. "Electronic mail. Some languages allow different writings, but each team should use only one. https://en.wikipedia.org/wiki/Email"
 msgid "email"
-msgstr ""
+msgstr "E-mail"
 
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
-msgstr "radnik"
+msgstr "zaposlenik"
 
 #. "1. The money value of a property after all charges on it have been paid. Equity isn't debt, it's a representation of long-term capital (So combining it with liability isn't really very meaningful, except in the balance sheet. 2. (a) The value of the shares issued by  a company. (b) Ordinary stocks and shares that carry no fixed interest."
 msgid "equity"
@@ -424,6 +428,14 @@ msgstr "financijski kalkulator: kamatna stopa"
 #. "see: payment"
 msgid "financial calculator: payments"
 msgstr "financijski kalkulator: rate"
+
+#. "formal records of the financial activities and position of a business, person, or other entity. See https://en.wikipedia.org/wiki/Financial_statement for a list."
+msgid "financial statement"
+msgstr "financijsko stanje"
+
+#. "Free software is a matter of liberty, not price … see https://en.wikipedia.org/wiki/Free_software"
+msgid "free software"
+msgstr "slobodan softver"
 
 #. "An increase in wealth; profit; advantage (See also: capital gains)"
 msgid "gain"
@@ -743,25 +755,23 @@ msgstr "šifra poreza"
 
 #. "field of an account"
 msgid "tax info"
-msgstr "porezne informacije"
+msgstr "podaci poreza"
 
-#. "Amost everybody has to declare and probably pay it. Ask Al Capone or Donald Trump! ;-)"
-#, fuzzy
-#| msgid "account type: Income"
+#. "Amost everybody has to declare and probably pay it. See https://en.wikipedia.org/wiki/Income_tax"
 msgid "tax type: income tax"
-msgstr "vrsta konta: Prihod, dohodak"
+msgstr "porez na dohodak"
 
-#. "Usually only business users have to handle it."
+#. "Usually only business users have to handle it, see https://en.wikipedia.org/wiki/Sales_tax."
 msgid "tax type: sales tax"
-msgstr ""
+msgstr "porez na promet"
 
 #. "'Goods and Service Tax' is one form of sales tax."
 msgid "tax type: GST"
-msgstr ""
+msgstr "porez na robu i usluge"
 
 #. "'Value Added Tax' is the other form of sales tax."
 msgid "tax type: VAT"
-msgstr ""
+msgstr "PDV"
 
 #. "If you create a new e.g. style sheet, you can start from a template."
 msgid "template"

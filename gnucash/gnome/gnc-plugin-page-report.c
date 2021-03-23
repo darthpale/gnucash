@@ -1136,10 +1136,10 @@ static action_toolbar_labels toolbar_labels[] =
     { "ReportExportAction",   N_("Export") },
     { "ReportOptionsAction",  N_("Options") },
     /* Translators: This string is meant to be a short alternative for "Save Report Configuration"
-     * to be used as toolbar button label. */
+       to be used as toolbar button label. */
     { "ReportSaveAction", N_("Save Config") },
     /* Translators: This string is meant to be a short alternative for "Save Report Configuration As..."
-     * to be used as toolbar button label. */
+       to be used as toolbar button label. */
     { "ReportSaveAsAction", N_("Save Config As...") },
     { "FilePrintPDFAction", N_("Make Pdf") },
     { NULL, NULL },
@@ -1425,6 +1425,12 @@ gnc_plugin_page_report_back_cb( GtkAction *action, GncPluginPageReport *report )
         gnc_html_show_url(priv->html, node->type, node->location,
                           node->label, 0);
     }
+}
+
+void
+gnc_plugin_page_report_reload (GncPluginPageReport *report)
+{
+    gnc_plugin_page_report_reload_cb (NULL, report);
 }
 
 static void

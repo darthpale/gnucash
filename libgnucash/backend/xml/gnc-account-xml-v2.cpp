@@ -25,13 +25,13 @@
 extern "C"
 {
 #include <config.h>
-
-#include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <AccountP.h>
 #include <Account.h>
 }
+
+#include <glib.h>
 
 #include "gnc-xml-helper.h"
 #include "sixtp.h"
@@ -322,7 +322,7 @@ deprecated_account_security_handler (xmlNodePtr node, gpointer act_pdata)
 
     PWARN ("Account %s: Obsolete xml tag 'act:security' will not be preserved.",
            xaccAccountGetName (pdata->account));
-    /* If the account has both a commodity and a security elemet, and
+    /* If the account has both a commodity and a security element, and
        the commodity is a currecny, then the commodity is probably
        wrong. In that case we want to replace it with the
        security. jralls 2010-11-02 */

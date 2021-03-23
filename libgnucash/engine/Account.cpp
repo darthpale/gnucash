@@ -755,7 +755,7 @@ gnc_account_class_init (AccountClass *klass)
                        "The smallest fraction of the commodity that is "
                        "tracked.  This number is used as the denominator "
                        "value in 1/x, so a value of 100 says that the "
-                       "commodity can be divided into hundreths.  E.G."
+                       "commodity can be divided into hundredths.  E.G."
                        "1 USD can be divided into 100 cents.",
                        0,
                        G_MAXINT32,
@@ -1332,8 +1332,8 @@ xaccFreeAccount (Account *acc)
 
     if (priv->children)
     {
-        PERR (" instead of calling xaccFreeAccount(), please call \n"
-              " xaccAccountBeginEdit(); xaccAccountDestroy(); \n");
+        PERR (" instead of calling xaccFreeAccount(), please call\n"
+              " xaccAccountBeginEdit(); xaccAccountDestroy();\n");
 
         /* First, recursively free children */
         xaccFreeAccountChildren(acc);
@@ -1342,8 +1342,8 @@ xaccFreeAccount (Account *acc)
     /* remove lots -- although these should be gone by now. */
     if (priv->lots)
     {
-        PERR (" instead of calling xaccFreeAccount(), please call \n"
-              " xaccAccountBeginEdit(); xaccAccountDestroy(); \n");
+        PERR (" instead of calling xaccFreeAccount(), please call\n"
+              " xaccAccountBeginEdit(); xaccAccountDestroy();\n");
 
         for (lp = priv->lots; lp; lp = lp->next)
         {
@@ -1361,8 +1361,8 @@ xaccFreeAccount (Account *acc)
     if (priv->splits)
     {
         GList *slist;
-        PERR (" instead of calling xaccFreeAccount(), please call \n"
-              " xaccAccountBeginEdit(); xaccAccountDestroy(); \n");
+        PERR (" instead of calling xaccFreeAccount(), please call\n"
+              " xaccAccountBeginEdit(); xaccAccountDestroy();\n");
 
         qof_instance_reset_editlevel(acc);
 
@@ -3118,6 +3118,28 @@ gnc_account_lookup_by_full_name (const Account *any_acc,
     found = gnc_account_lookup_by_full_name_helper(root, names);
     g_strfreev(names);
     return found;
+}
+
+Account*
+gnc_account_lookup_by_type_and_commodity (Account* root,
+                                          const char* name,
+                                          GNCAccountType acctype,
+                                          gnc_commodity* commodity)
+{
+    auto rpriv{GET_PRIVATE(root)};
+    for (auto node = rpriv->children; node; node = node->next)
+    {
+        auto account{static_cast<Account*>(node->data)};
+        if (xaccAccountGetType (account) == acctype &&
+            gnc_commodity_equiv(xaccAccountGetCommodity (account), commodity))
+        {
+            if (name && strcmp(name, xaccAccountGetName(account)))
+                continue; //name doesn't match so skip this one
+
+            return account;
+        }
+    }
+    return nullptr;
 }
 
 void

@@ -3,14 +3,15 @@
 # Ori Hoch <ori@uumpa.com>, 2008
 # http://www.uumpa.com/gnucash-he/
 # Yaron Shahrabani <sh.yaron@gmail.com>, 2020.
+# Avi Markovitz <avi.markovitz@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: gnucash 3.6\n"
 "Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
 "cgi?product=GnuCash&component=Translations\n"
-"POT-Creation-Date: 2020-12-30 10:07+0100\n"
-"PO-Revision-Date: 2020-12-31 14:29+0000\n"
-"Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
+"POT-Creation-Date: 2021-01-10 08:00+0100\n"
+"PO-Revision-Date: 2021-03-21 13:29+0000\n"
+"Last-Translator: Avi Markovitz <avi.markovitz@gmail.com>\n"
 "Language-Team: Hebrew <https://hosted.weblate.org/projects/gnucash/glossary/"
 "he/>\n"
 "Language: he\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && "
 "n % 10 == 0) ? 2 : 3));\n"
-"X-Generator: Weblate 4.4.1-dev\n"
+"X-Generator: Weblate 4.5.2-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
@@ -27,7 +28,7 @@ msgstr "מונח"
 
 #. "Opening and closing quote symbols and optionally their key combos like [altgr]+[Y]/[X]. Define the preferred style of quotation, see https://en.wikipedia.org/wiki/Quotation_mark#Summary_table"
 msgid "\"\""
-msgstr "„”"
+msgstr "\"\""
 
 #. "A detailed record of money spent and received"
 msgid "account"
@@ -333,6 +334,10 @@ msgstr "מטבע"
 msgid "Custom"
 msgstr "מותאם"
 
+#. "Compact, well-structured presentation of informations. See https://en.wikipedia.org/wiki/Dashboard_(business)"
+msgid "dashboard"
+msgstr "לוּחַ מַחווָנִים"
+
 #. "The backend where the data is stored."
 msgid "database"
 msgstr "מסד נתונים"
@@ -425,6 +430,14 @@ msgstr "מחשבון פיננסי: שער ריבית"
 msgid "financial calculator: payments"
 msgstr "מחשבון פיננסי: תשלומים"
 
+#. "formal records of the financial activities and position of a business, person, or other entity. See https://en.wikipedia.org/wiki/Financial_statement for a list."
+msgid "financial statement"
+msgstr "דוחות כספיים"
+
+#. "Free software is a matter of liberty, not price … see https://en.wikipedia.org/wiki/Free_software"
+msgid "free software"
+msgstr "תוכנה חינמית"
+
 #. "An increase in wealth; profit; advantage (See also: capital gains)"
 msgid "gain"
 msgstr "רווח"
@@ -503,15 +516,15 @@ msgstr "מזכר"
 
 #. "(a) An agreement by which money is lent by a bank for buying a house or other property, the property being the security. (b) A sum of money lent in this way."
 msgid "Mortgage"
-msgstr "משכנתה"
+msgstr "משכנתא"
 
 #. "Adjustable Rate Mortgage"
 msgid "mortgage: ARM"
-msgstr "משכנתה: משכנתה בריבית משתנה"
+msgstr "משכנתא: משכנתא בריבית משתנה"
 
 #. "Fixed Rate Mortgage"
 msgid "mortgage: FRM"
-msgstr "משכנתה: משכנתה בריבית קבועה"
+msgstr "משכנתא: משכנתא בריבית קבועה"
 
 #. "e.g. USD, DEM, see Currency."
 msgid "national currency"
@@ -745,11 +758,11 @@ msgstr "קוד מס"
 msgid "tax info"
 msgstr "מידע מס"
 
-#. "Amost everybody has to declare and probably pay it. Ask Al Capone or Donald Trump! ;-)"
+#. "Amost everybody has to declare and probably pay it. See https://en.wikipedia.org/wiki/Income_tax"
 msgid "tax type: income tax"
 msgstr "סוג מס: מס הכנסה"
 
-#. "Usually only business users have to handle it."
+#. "Usually only business users have to handle it, see https://en.wikipedia.org/wiki/Sales_tax."
 msgid "tax type: sales tax"
 msgstr "סוג מס: מס מכירה"
 

@@ -297,7 +297,7 @@
          (show-rates? (get-option pagename-commodities optname-show-rates))
          (parent-mode (get-option gnc:pagename-display optname-parent-balance-mode))
          (parent-total-mode
-          (assq-ref '((t . #t) (f . #f) (canonically-tabbed . canonically-tabbed))
+          (assq-ref '((t . #t) (f . #f))
                     (get-option gnc:pagename-display optname-parent-total-mode)))
          (show-zb-accts? (get-option gnc:pagename-display optname-show-zb-accts))
          (omit-zb-bals? (get-option gnc:pagename-display optname-omit-zb-bals))
@@ -404,7 +404,8 @@
            build-table
            (map make-header
                 (append
-                 (if show-code? (list (G_ "Code")) '())
+                 ;; Note: If this is to long, do not use "Code" it is currently used for tax code.
+                 (if show-code? (list (G_ "Account Code")) '())
                  (if show-type? (list (G_ "Type")) '())
                  (if show-desc? (list (G_ "Description")) '())
                  (list (G_ "Account title")))))

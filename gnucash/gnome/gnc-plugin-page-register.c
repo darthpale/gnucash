@@ -367,13 +367,13 @@ static GtkActionEntry gnc_plugin_page_register_actions [] =
     },
     {
         "EditTaxOptionsAction", NULL,
-        /* Translators: remember to reuse this *
-         * translation in dialog-account.glade */
+        /* Translators: remember to reuse this
+           translation in dialog-account.glade */
         N_("Ta_x Report Options"), NULL,
-        /* Translators: currently implemented are *
-         * US: income tax and                     *
-         * DE: VAT                                *
-         * So adjust this string                  */
+        /* Translators: currently implemented are
+           US: income tax and
+           DE: VAT
+           So adjust this string */
         N_("Setup relevant accounts for tax reports, e.g. US income tax"),
         G_CALLBACK (gnc_plugin_page_register_cmd_edit_tax_options)
     },
@@ -1144,10 +1144,6 @@ gnc_plugin_page_register_ui_update (gpointer various,
         action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE (page),
                                              "DeleteTransactionAction");
         gtk_action_set_sensitive (GTK_ACTION (action), !read_only & !voided);
-
-        action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE (page),
-                                             "DuplicateTransactionAction");
-        gtk_action_set_sensitive (GTK_ACTION (action), !read_only & TRUE);
 
         if (cursor_class == CURSOR_CLASS_SPLIT)
         {
@@ -3726,7 +3722,7 @@ gnc_plugin_page_register_cmd_print_check (GtkAction* action,
         {
             if (xaccSplitGetAccount (split) == account)
             {
-                splits = g_list_append (splits, split);
+                splits = g_list_prepend (splits, split);
                 gnc_ui_print_check_dialog_create (window, splits);
                 g_list_free (splits);
             }
@@ -3737,7 +3733,7 @@ gnc_plugin_page_register_cmd_print_check (GtkAction* action,
                 split = gnc_split_register_get_current_trans_split (reg, NULL);
                 if (split)
                 {
-                    splits = g_list_append (splits, split);
+                    splits = g_list_prepend (splits, split);
                     gnc_ui_print_check_dialog_create (window, splits);
                     g_list_free (splits);
                 }
@@ -3789,6 +3785,7 @@ gnc_plugin_page_register_cmd_print_check (GtkAction* action,
             }
         }
         gnc_ui_print_check_dialog_create (window, splits);
+        g_list_free (splits);
     }
     else
     {
@@ -5353,24 +5350,26 @@ gppr_account_destroy_cb (Account* account)
         ledger_type = gnc_ledger_display_type (priv->ledger);
         if (ledger_type == LD_GL)
         {
-            kill = g_list_append (kill, page);
+            kill = g_list_prepend (kill, page);
             /* kill it */
         }
         else if ((ledger_type == LD_SINGLE) || (ledger_type == LD_SUBACCOUNT))
         {
             if (guid_compare (acct_guid, &priv->key) == 0)
             {
-                kill = g_list_append (kill, page);
+                kill = g_list_prepend (kill, page);
             }
         }
     }
 
+    kill = g_list_reverse (kill);
     /* Now kill them. */
     for (item = kill; item; item = g_list_next (item))
     {
         page = (GncPluginPageRegister*)item->data;
         gnc_main_window_close_page (GNC_PLUGIN_PAGE (page));
     }
+    g_list_free (kill);
 }
 
 /** This function is the handler for all event messages from the

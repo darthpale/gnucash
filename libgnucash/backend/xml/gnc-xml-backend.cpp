@@ -27,8 +27,6 @@ extern "C"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <glib.h>
-#include <glib/gstdio.h>
 #include <regex.h>
 
 #include <gnc-engine.h> //for GNC_MOD_BACKEND
@@ -38,6 +36,8 @@ extern "C"
 
 }
 
+#include <glib.h>
+#include <glib/gstdio.h>
 #include <sstream>
 
 #include "gnc-xml-backend.hpp"
@@ -48,6 +48,11 @@ extern "C"
 #define XML_URI_PREFIX "xml://"
 #define FILE_URI_PREFIX "file://"
 static QofLogModule log_module = GNC_MOD_BACKEND;
+
+GncXmlBackend::~GncXmlBackend()
+{
+    session_end();
+};
 
 bool
 GncXmlBackend::check_path (const char* fullpath, bool create)

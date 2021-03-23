@@ -30,27 +30,13 @@ extern "C"
 #include "config.h"
 
 #include <platform.h>
-#ifdef __STRICT_ANSI__
-#undef __STRICT_ANSI__
-#define __STRICT_ANSI_UNSET__ 1
-#endif
-#ifdef _NO_OLDNAMES
-#undef _NO_OLDNAMES
-#endif
-#ifdef _UWIN
-#undef _UWIN
-#endif
 #if PLATFORM(WINDOWS)
 #include <winsock2.h>
 #include <windows.h>
-#define __STDC_FORMAT_MACROS 1
 #endif
 
 #include <inttypes.h>
 #include <errno.h>
-#include <glib.h>
-#include <glib/gstdio.h>
-
 #include "qof.h"
 #include "qofquery-p.h"
 #include "qofquerycore-p.h"
@@ -72,6 +58,10 @@ extern "C"
 #endif
 
 }
+
+#include <glib.h>
+#include <glib/gstdio.h>
+
 #include <boost/regex.hpp>
 #include <string>
 #include <iomanip>
@@ -84,13 +74,6 @@ extern "C"
 #include <gnc-sql-object-backend.hpp>
 #include "gnc-dbisqlresult.hpp"
 #include "gnc-dbisqlconnection.hpp"
-
-#if PLATFORM(WINDOWS)
-#ifdef __STRICT_ANSI_UNSET__
-#undef __STRICT_ANSI_UNSET__
-#define __STRICT_ANSI__ 1
-#endif
-#endif
 
 #if LIBDBI_VERSION >= 900
 #define HAVE_LIBDBI_R 1
@@ -589,12 +572,21 @@ adjust_sql_options (dbi_conn connection)
         return;
     }
     PINFO("Initial sql_mode: %s", str.c_str());
-    if(str.find(SQL_OPTION_TO_REMOVE) == std::string::npos)
-        return;
+    if(str.find(SQL_OPTION_TO_REMOVE) != std::string::npos)
+        str = adjust_sql_options_string(str);
 
-    std::string adjusted_str{adjust_sql_options_string(str)};
-    PINFO("Setting sql_mode to %s", adjusted_str.c_str());
-    std::string set_str{"SET sql_mode='" + std::move(adjusted_str) + "'"};
+    //https://bugs.gnucash.org/show_bug.cgi?id=798112
+    const char* backslash_option{"NO_BACKSLASH_ESCAPES"};
+
+    if (str.find(backslash_option) == std::string::npos)
+    {
+        if (!str.empty())
+            str.append(",");
+        str.append(backslash_option);
+    }
+
+    PINFO("Setting sql_mode to %s", str.c_str());
+    std::string set_str{"SET sql_mode='" + std::move(str) + "'"};
     dbi_result set_result = dbi_conn_query(connection,
                                            set_str.c_str());
     if (set_result)
@@ -669,7 +661,7 @@ GncDbiBackend<Type>::session_begin (QofSession* session, const char* new_uri,
             uri.m_portnum = PGSQL_DEFAULT_PORT;
         /* Postgres's SQL interface coerces identifiers to lower case, but the
          * C interface is case-sensitive. This results in a mixed-case dbname
-         * being created (with a lower case name) but then dbi can't conect to
+         * being created (with a lower case name) but then dbi can't connect to
          * it. To work around this, coerce the name to lowercase first. */
         auto lcname = g_utf8_strdown (uri.dbname(), -1);
         uri.m_dbname = std::string{lcname};

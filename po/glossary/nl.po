@@ -1,22 +1,24 @@
 # Dutch translation of GNUCash glossary.
 # Copyright (C) 2006 Free Software Foundation, Inc.
 # Bernard Meens <meensb@xs4all.nl>, 2006.
-# Geert Janssens <geert@kobaltwit.be>, 2020
-#
+# Geert Janssens <geert@kobaltwit.be>, 2020, 2021.
+# eol <joshua.de.clercq@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: GnuCash 4.1+\n"
-"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
-"product=GnuCash&component=Translations\n"
-"POT-Creation-Date: 2020-12-30 10:07+0100\n"
-"PO-Revision-Date: 2020-08-18 17:43+0200\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
+"cgi?product=GnuCash&component=Translations\n"
+"POT-Creation-Date: 2021-01-10 08:00+0100\n"
+"PO-Revision-Date: 2021-03-20 21:18+0000\n"
 "Last-Translator: Geert Janssens <geert@kobaltwit.be>\n"
-"Language-Team: NONE\n"
+"Language-Team: Dutch <https://hosted.weblate.org/projects/gnucash/glossary/"
+"nl/>\n"
 "Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.4\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.5.2-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
@@ -24,7 +26,7 @@ msgstr "Begrip"
 
 #. "Opening and closing quote symbols and optionally their key combos like [altgr]+[Y]/[X]. Define the preferred style of quotation, see https://en.wikipedia.org/wiki/Quotation_mark#Summary_table"
 msgid "\"\""
-msgstr ""
+msgstr "\"\""
 
 #. "A detailed record of money spent and received"
 msgid "account"
@@ -312,7 +314,7 @@ msgstr "Credit"
 
 #. "-"
 msgid "Credit Card"
-msgstr "Credit Card"
+msgstr "Creditcard"
 
 #. "A transfer of money direct from one bank account to another, without using a cheque"
 msgid "credit transfer"
@@ -329,6 +331,10 @@ msgstr "valuta"
 #. "Custom print format (i.e. according to the user's wishes) as opposed to a template choice."
 msgid "Custom"
 msgstr "Aangepast"
+
+#. "Compact, well-structured presentation of informations. See https://en.wikipedia.org/wiki/Dashboard_(business)"
+msgid "dashboard"
+msgstr "dashboard"
 
 #. "The backend where the data is stored."
 msgid "database"
@@ -376,11 +382,11 @@ msgstr "dubbele boekhouding"
 
 #. "Transactions or bills/invoices can contain a document link which links either to some file on the local disk or to some arbitrary URL."
 msgid "document link"
-msgstr ""
+msgstr "document link"
 
 #. "Electronic mail. Some languages allow different writings, but each team should use only one. https://en.wikipedia.org/wiki/Email"
 msgid "email"
-msgstr ""
+msgstr "email"
 
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
@@ -422,6 +428,14 @@ msgstr "rentepercentage"
 msgid "financial calculator: payments"
 msgstr "betalingen"
 
+#. "formal records of the financial activities and position of a business, person, or other entity. See https://en.wikipedia.org/wiki/Financial_statement for a list."
+msgid "financial statement"
+msgstr "jaarrekening"
+
+#. "Free software is a matter of liberty, not price … see https://en.wikipedia.org/wiki/Free_software"
+msgid "free software"
+msgstr "vrije software"
+
 #. "An increase in wealth; profit; advantage (See also: capital gains)"
 msgid "gain"
 msgstr "toename"
@@ -440,7 +454,7 @@ msgstr "inkomensverklaring"
 
 #. "Money charged for borrowing money, or paid to somebody who invests money"
 msgid "interest"
-msgstr "interest"
+msgstr "intrest"
 
 #. "A list of goods sold or services provided together with the prices charged; see also: a bill. In Gnucash, an 'invoice' is a statement that we sent out (to a customer), whereas a 'bill' is one that we received (from a vendor)."
 msgid "invoice"
@@ -463,10 +477,8 @@ msgid "loan"
 msgstr "lening"
 
 #. "Annual Percentage Rate, includes in contrast to the Nominal Rate some of the various costs to obtain a loan."
-#, fuzzy
-#| msgid "loan"
 msgid "loan: APR"
-msgstr "lening"
+msgstr "lening: APR"
 
 #. "The money lost in business activity"
 msgid "loss"
@@ -505,16 +517,12 @@ msgid "Mortgage"
 msgstr "Hypotheek"
 
 #. "Adjustable Rate Mortgage"
-#, fuzzy
-#| msgid "Mortgage"
 msgid "mortgage: ARM"
-msgstr "Hypotheek"
+msgstr "Hypotheek: ARM"
 
 #. "Fixed Rate Mortgage"
-#, fuzzy
-#| msgid "Mortgage"
 msgid "mortgage: FRM"
-msgstr "Hypotheek"
+msgstr "Hypotheek: FRM"
 
 #. "e.g. USD, DEM, see Currency."
 msgid "national currency"
@@ -558,7 +566,7 @@ msgstr "opties"
 
 #. "Watch out: Although this word exists in gnucash program code, all that program code in gnucash is currently not activated. In the future, it will be used in business accounting as follows: A particular request to make or supply goods, but belonging to a (larger) job. Such a request can come from a customer or be sent to a vendor. An order will probably generate one invoice or bill."
 msgid "order"
-msgstr "opdracht"
+msgstr "opdracht/bestelling"
 
 #. "Name of an automatically created account that holds splits that have no account."
 msgid "orphan"
@@ -590,7 +598,7 @@ msgstr "betaling"
 
 #. "An account where no transactions may be posted to; transactions can only be posted to subaccounts of this account, so this account serves as a placeholder in the hierarchy"
 msgid "placeholder"
-msgstr "verzamelboek"
+msgstr "aggregatie"
 
 #. "A set of investments owned by a person"
 msgid "portfolio"
@@ -630,7 +638,7 @@ msgstr "winst"
 
 #. "OBSOLETE. This report was renamed to 'income statement' on 2004-07-13. Old definition: A list that shows the amount of money spent compared with the amount earned by a business in a particular period"
 msgid "Profit & Loss"
-msgstr "Winst & Verlies"
+msgstr "Winst-en verliesrekening"
 
 #. "-"
 msgid "quick-fill"
@@ -690,7 +698,7 @@ msgstr "rapport vorm: vertikaal"
 
 #. "name of an equity account (?); to be distinguished from the opening balance."
 msgid "Retained Earnings"
-msgstr "Winst reserves"
+msgstr "Ingehouden winst"
 
 #. "Create a new transaction that is the inverse of the old one.  When you add the two together they completely cancel out.  Accounts use this instead of voiding transactions, usually because the prior month has been closed and can no longer be changed, or the entire accounting system is 'write only'."
 msgid "reverse transaction, to (Action in the register)"
@@ -730,7 +738,7 @@ msgstr "bron"
 
 #. "One of the two or several parts a transaction is divided into"
 msgid "split"
-msgstr "deel"
+msgstr "boekregel"
 
 #. "This sets the particular design or shape of a report."
 msgid "style sheet"
@@ -748,23 +756,21 @@ msgstr "belastingvak"
 msgid "tax info"
 msgstr "belastinginfo"
 
-#. "Amost everybody has to declare and probably pay it. Ask Al Capone or Donald Trump! ;-)"
-#, fuzzy
-#| msgid "account type: Income"
+#. "Amost everybody has to declare and probably pay it. See https://en.wikipedia.org/wiki/Income_tax"
 msgid "tax type: income tax"
-msgstr "rekening type: Inkomsten"
+msgstr "belasting type: Inkomsten belasting"
 
-#. "Usually only business users have to handle it."
+#. "Usually only business users have to handle it, see https://en.wikipedia.org/wiki/Sales_tax."
 msgid "tax type: sales tax"
-msgstr ""
+msgstr "belasting type: omzetbelasting"
 
 #. "'Goods and Service Tax' is one form of sales tax."
 msgid "tax type: GST"
-msgstr ""
+msgstr "belasting type: GST"
 
 #. "'Value Added Tax' is the other form of sales tax."
 msgid "tax type: VAT"
-msgstr ""
+msgstr "belasting type: BTW"
 
 #. "If you create a new e.g. style sheet, you can start from a template."
 msgid "template"

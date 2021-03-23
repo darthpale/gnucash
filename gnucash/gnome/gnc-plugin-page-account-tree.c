@@ -275,13 +275,13 @@ static GtkActionEntry gnc_plugin_page_account_tree_actions [] =
     },
     {
         "EditTaxOptionsAction", NULL,
-        /* Translators: remember to reuse this *
-         * translation in dialog-account.glade */
+        /* Translators: remember to reuse this
+           translation in dialog-account.glade */
         N_("Ta_x Report Options"), NULL,
-        /* Translators: currently implemented are *
-         * US: income tax and                     *
-         * DE: VAT                                *
-         * So adjust this string                  */
+        /* Translators: currently implemented are
+           US: income tax and
+           DE: VAT
+           So adjust this string                  */
         N_("Setup relevant accounts for tax reports, e.g. US income tax"),
         G_CALLBACK (gnc_plugin_page_account_tree_cmd_edit_tax_options)
     },
@@ -1668,10 +1668,6 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
     if (!(xaccAccountGetSplitList (account) != NULL ||
           gnc_account_n_children (account)))
     {
-        /* update opening balance account */
-        gnc_find_or_create_equity_account (gnc_account_get_root(account),
-                                           EQUITY_OPENING_BALANCE,
-                                           xaccAccountGetCommodity (account));
         do_delete_account (account, NULL, NULL, NULL);
         return;
     }
@@ -1708,10 +1704,6 @@ gnc_plugin_page_account_tree_cmd_delete_account (GtkAction *action, GncPluginPag
                                 adopt.subacct.new_account,
                                 adopt.delete_res) == GTK_RESPONSE_ACCEPT)
     {
-        /* update opening balance account */
-        gnc_find_or_create_equity_account (gnc_account_get_root(account),
-                                           EQUITY_OPENING_BALANCE,
-                                           xaccAccountGetCommodity (account));
         do_delete_account (account, adopt.subacct.new_account,
                            adopt.subtrans.new_account, adopt.trans.new_account);
     }
@@ -1808,10 +1800,10 @@ void do_delete_account (Account* account, Account* saa, Account* sta, Account* t
     GList *acct_list, *ptr;
     const GncGUID *guid;
     gchar guidstr[GUID_ENCODING_LENGTH+1];
-    
+
     gnc_set_busy_cursor(NULL, TRUE);
     gnc_suspend_gui_refresh ();
-    
+
     /* Move subaccounts and transactions if this was requested */
     xaccAccountBeginEdit (account);
     if (saa)
@@ -1836,7 +1828,7 @@ void do_delete_account (Account* account, Account* saa, Account* sta, Account* t
         xaccAccountMoveAllSplits (account, ta);
     }
     xaccAccountCommitEdit (account);
-    
+
     /* Drop all references from the state file for
      * any subaccount the account still has
      */
@@ -1848,13 +1840,13 @@ void do_delete_account (Account* account, Account* saa, Account* sta, Account* t
         gnc_state_drop_sections_for (guidstr);
     }
     g_list_free(acct_list);
-    
+
     /* Drop all references from the state file for this account
      */
     guid = xaccAccountGetGUID (account);
     guid_to_string_buff (guid, guidstr);
     gnc_state_drop_sections_for (guidstr);
-    
+
     /*
      * Finally, delete the account, any subaccounts it may still
      * have, and any splits it or its subaccounts may still have.

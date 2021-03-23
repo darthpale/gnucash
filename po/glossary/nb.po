@@ -4,22 +4,23 @@
 # Tor Harald Thorland <tortho@strigen.com>, 2005.
 # Kjartan Maraas <kmaraas@gnome.org>, 2005.
 # John Erling Blad <jeblad@gmail.com>, 2018
-#
-#
+# Allan Nordhøy <epost@anotheragency.no>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: gnucash-glossary 0.1\n"
-"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug.cgi?"
-"product=GnuCash&component=Translations\n"
-"POT-Creation-Date: 2020-12-30 10:07+0100\n"
-"PO-Revision-Date: 2020-08-16 18:02+0200\n"
-"Last-Translator: John Erling Blad <jeblad@gmail.com>\n"
-"Language-Team: Norwegian/Bokmaal <i18n-nb@lister.ping.uio.no>\n"
+"Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
+"cgi?product=GnuCash&component=Translations\n"
+"POT-Creation-Date: 2021-01-10 08:00+0100\n"
+"PO-Revision-Date: 2021-02-03 08:41+0000\n"
+"Last-Translator: Allan Nordhøy <epost@anotheragency.no>\n"
+"Language-Team: Norwegian Bokmål <https://hosted.weblate.org/projects/gnucash/"
+"glossary/nb_NO/>\n"
 "Language: nb\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.3\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.5-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
@@ -27,7 +28,7 @@ msgstr "Term (Kjære oversetter: Denne fila vil aldri ses av brukeren!)"
 
 #. "Opening and closing quote symbols and optionally their key combos like [altgr]+[Y]/[X]. Define the preferred style of quotation, see https://en.wikipedia.org/wiki/Quotation_mark#Summary_table"
 msgid "\"\""
-msgstr ""
+msgstr "«»"
 
 #. "A detailed record of money spent and received"
 msgid "account"
@@ -333,6 +334,10 @@ msgstr "valuta"
 msgid "Custom"
 msgstr "Egendefinert"
 
+#. "Compact, well-structured presentation of informations. See https://en.wikipedia.org/wiki/Dashboard_(business)"
+msgid "dashboard"
+msgstr ""
+
 #. "The backend where the data is stored."
 msgid "database"
 msgstr "database"
@@ -379,11 +384,11 @@ msgstr "dobbel bokføring"
 
 #. "Transactions or bills/invoices can contain a document link which links either to some file on the local disk or to some arbitrary URL."
 msgid "document link"
-msgstr ""
+msgstr "dokumentlenke"
 
 #. "Electronic mail. Some languages allow different writings, but each team should use only one. https://en.wikipedia.org/wiki/Email"
 msgid "email"
-msgstr ""
+msgstr "e-post"
 
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
@@ -424,6 +429,16 @@ msgstr "finanskalkulator: rentesats"
 #. "see: payment"
 msgid "financial calculator: payments"
 msgstr "finanskalkulator: betalinger"
+
+#. "formal records of the financial activities and position of a business, person, or other entity. See https://en.wikipedia.org/wiki/Financial_statement for a list."
+#, fuzzy
+#| msgid "income statement"
+msgid "financial statement"
+msgstr "resultatoppstilling"
+
+#. "Free software is a matter of liberty, not price … see https://en.wikipedia.org/wiki/Free_software"
+msgid "free software"
+msgstr ""
 
 #. "An increase in wealth; profit; advantage (See also: capital gains)"
 msgid "gain"
@@ -605,7 +620,7 @@ msgstr "poster, til"
 
 #. "A menu choice in many graphical user interface applications that allows the user to specify how the application will act each time it is used. "
 msgid "preferences"
-msgstr "instillinger"
+msgstr "innstillinger"
 
 #. "Loan repayment calculator: your payments are split in interests payment and principal payment"
 msgid "principal payment"
@@ -751,13 +766,11 @@ msgstr "MVA-kode"
 msgid "tax info"
 msgstr "skatteinfo"
 
-#. "Amost everybody has to declare and probably pay it. Ask Al Capone or Donald Trump! ;-)"
-#, fuzzy
-#| msgid "account type: Income"
+#. "Amost everybody has to declare and probably pay it. See https://en.wikipedia.org/wiki/Income_tax"
 msgid "tax type: income tax"
-msgstr "kontotype: Inntekt"
+msgstr "inntektsskatt"
 
-#. "Usually only business users have to handle it."
+#. "Usually only business users have to handle it, see https://en.wikipedia.org/wiki/Sales_tax."
 msgid "tax type: sales tax"
 msgstr ""
 

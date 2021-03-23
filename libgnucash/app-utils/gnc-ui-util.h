@@ -244,9 +244,6 @@ gnc_commodity * gnc_locale_default_currency_nodefault (void);
  * "USD", but this will have nothing to do with the actual locale. */
 gnc_commodity * gnc_locale_default_currency (void);
 
-/* Returns the default ISO currency string of the current locale. */
-const char * gnc_locale_default_iso_currency_code (void);
-
 
 /** Return the default currency set by the user.  If the user's
  *  preference is invalid, then this routine will return the default
@@ -366,7 +363,7 @@ gboolean xaccParseAmount (const char * in_str, gboolean monetary,
 
 /*
  * xaccParseAmountPosSign is just like xaccParseAmount except the
- * caller can choose whether the locale's postive sign (or in absense
+ * caller can choose whether the locale's positive sign (or in absence
  * the '+') character is ignored. Setting skip to TRUE will cause
  * the function to ignore any positive sign. Setting it to FALSE,
  * and positive signs will be treated as unrecognized characters.

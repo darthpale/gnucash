@@ -51,7 +51,6 @@
 #include "Transaction.h"
 #include "gnc-engine.h"
 #include "gnc-features.h"
-#include "gnc-euro.h"
 #include "gnc-hooks.h"
 #include "gnc-locale-tax.h"
 #include "gnc-session.h"
@@ -623,14 +622,14 @@ gnc_ui_account_get_tax_info_string (const Account *account)
         /* tax_related && !code */
         else
             /* Translators: This and the following strings appear on
-             * the account tab if the Tax Info column is displayed,
-             * i.e. if the user wants to record the tax form number
-             * and location on that tax form which corresponds to this
-             * gnucash account. For the US Income Tax support in
-             * gnucash, each tax code that can be assigned to an
-             * account generally corresponds to a specific line number
-             * on a paper form and each form has a unique
-             * identification (e.g., Form 1040, Schedule A). */
+               the account tab if the Tax Info column is displayed,
+               i.e. if the user wants to record the tax form number
+               and location on that tax form which corresponds to this
+               gnucash account. For the US Income Tax support in
+               gnucash, each tax code that can be assigned to an
+               account generally corresponds to a specific line number
+               on a paper form and each form has a unique
+               identification (e.g., Form 1040, Schedule A). */
             return g_strdup (_("Tax-related but has no tax code"));
     }
     else  /* with tax code */
@@ -840,14 +839,14 @@ gnc_ui_account_get_tax_info_sub_acct_string (const Account *account)
         g_list_free (account_descendants);
         g_list_free (descendant);
         /* Translators: This and the following strings appear on
-         * the account tab if the Tax Info column is displayed,
-         * i.e. if the user wants to record the tax form number
-         * and location on that tax form which corresponds to this
-         * gnucash account. For the US Income Tax support in
-         * gnucash, each tax code that can be assigned to an
-         * account generally corresponds to a specific line number
-         * on a paper form and each form has a unique
-         * identification (e.g., Form 1040, Schedule A). */
+           the account tab if the Tax Info column is displayed,
+           i.e. if the user wants to record the tax form number
+           and location on that tax form which corresponds to this
+           gnucash account. For the US Income Tax support in
+           gnucash, each tax code that can be assigned to an
+           account generally corresponds to a specific line number
+           on a paper form and each form has a unique
+           identification (e.g., Form 1040, Schedule A). */
         return (sub_acct_tax_number == 0) ? NULL :
                g_strdup_printf (_("(Tax-related subaccounts: %d)"),
                                 sub_acct_tax_number);
@@ -975,6 +974,7 @@ gnc_find_or_create_equity_account (Account *root,
     g_return_val_if_fail (equity_type < NUM_EQUITY_TYPES, NULL);
     g_return_val_if_fail (currency != NULL, NULL);
     g_return_val_if_fail (root != NULL, NULL);
+    g_return_val_if_fail (gnc_commodity_is_currency(currency), NULL);
 
     use_eq_op_feature = equity_type == EQUITY_OPENING_BALANCE && gnc_using_equity_type_opening_balance_account (gnc_get_current_book ());
 
@@ -1077,16 +1077,19 @@ gnc_account_create_opening_balance (Account *account,
     Account *equity_account;
     Transaction *trans;
     Split *split;
+    gnc_commodity *commodity;
 
     if (gnc_numeric_zero_p (balance))
         return TRUE;
 
     g_return_val_if_fail (account != NULL, FALSE);
+    commodity = xaccAccountGetCommodity (account);
+    g_return_val_if_fail (gnc_commodity_is_currency (commodity), FALSE);
 
     equity_account =
         gnc_find_or_create_equity_account (gnc_account_get_root(account),
                                            EQUITY_OPENING_BALANCE,
-                                           xaccAccountGetCommodity (account));
+                                           commodity);
     if (!equity_account)
         return FALSE;
 
@@ -1126,51 +1129,6 @@ gnc_account_create_opening_balance (Account *account,
     return TRUE;
 }
 
-#if 0 /* Not Used */
-static void
-gnc_lconv_set_utf8 (char **p_value, char *default_value)
-{
-    char *value = *p_value;
-    *p_value = NULL;
-
-    if ((value == NULL) || (value[0] == 0))
-        value = default_value;
-
-#ifdef G_OS_WIN32
-    {
-        /* get number of resulting wide characters */
-        size_t count = mbstowcs (NULL, value, 0);
-        if (count > 0)
-        {
-            /* malloc and convert */
-            wchar_t *wvalue = g_malloc ((count + 1) * sizeof(wchar_t));
-            count = mbstowcs (wvalue, value, count + 1);
-            if (count > 0)
-            {
-                *p_value = g_utf16_to_utf8 (wvalue, -1, NULL, NULL, NULL);
-            }
-            g_free (wvalue);
-        }
-    }
-#else /* !G_OS_WIN32 */
-    *p_value = g_locale_to_utf8 (value, -1, NULL, NULL, NULL);
-#endif
-
-    if (*p_value == NULL)
-    {
-        // The g_locale_to_utf8 conversion failed. FIXME: Should we rather
-        // use an empty string instead of the default_value? Not sure.
-        *p_value = default_value;
-    }
-}
-
-static void
-gnc_lconv_set_char (char *p_value, char default_value)
-{
-    if ((p_value != NULL) && (*p_value == CHAR_MAX))
-        *p_value = default_value;
-}
-#endif /* Not Used */
 
 gnc_commodity *
 gnc_locale_default_currency_nodefault (void)
@@ -1183,13 +1141,6 @@ gnc_locale_default_currency_nodefault (void)
     code = gnc_locale_default_iso_currency_code ();
 
     currency = gnc_commodity_table_lookup (table, GNC_COMMODITY_NS_CURRENCY, code);
-
-    /* Some very old locales (notably on win32) still announce a euro
-       currency as default, although it has been replaced by EUR in
-       2001. We use EUR as default in that case, but the user can always
-       override from gsettings. */
-    if (gnc_is_euro_currency (currency))
-        currency = gnc_get_euro();
 
     return (currency ? currency : NULL);
 }
@@ -1234,8 +1185,6 @@ gnc_default_currency_common (gchar *requested_currency,
     if (currency)
     {
         mnemonic = requested_currency;
-// ??? Does anyone know what this is supposed to be doing?
-//        requested_currency = g_strdup(gnc_commodity_get_mnemonic(currency));
         g_free(mnemonic);
     }
     return currency;
@@ -1615,7 +1564,7 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
         *buf = '\0';
         return 0;
     }
-    
+
     // Value may now be decimal, for example if the factional part is zero
     value_is_decimal = gnc_numeric_to_decimal(&val, NULL);
     /* print the integer part without separators */

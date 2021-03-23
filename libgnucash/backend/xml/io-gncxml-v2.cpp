@@ -36,8 +36,6 @@ extern "C"
 #endif
 #include <windows.h>
 #endif
-#include <glib.h>
-#include <glib/gstdio.h>
 #include <fcntl.h>
 #include <string.h>
 #ifdef HAVE_UNISTD_H
@@ -65,6 +63,9 @@ extern "C"
 # define g_open _open
 #endif
 }
+
+#include <glib.h>
+#include <glib/gstdio.h>
 
 #include "gnc-xml-backend.hpp"
 #include "sixtp-parsers.h"
@@ -1619,7 +1620,7 @@ gnc_book_write_to_xml_file_v2 (
 /*
  * Have to pass in the backend as this routine needs the temporary
  * backend for file export, not the real backend which could be
- * postgress or anything else.
+ * postgresql or anything else.
  */
 gboolean
 gnc_book_write_accounts_to_xml_file_v2 (QofBackend* qof_be, QofBook* book,

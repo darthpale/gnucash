@@ -26,7 +26,6 @@ extern "C"
 {
 #include <config.h>
 
-#include <glib.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +34,7 @@ extern "C"
 #include "qof.h"
 }
 
+#include <glib.h>
 #include <stdint.h>
 #include <boost/regex.hpp>
 #include <boost/locale/encoding_utf.hpp>
@@ -1004,6 +1004,10 @@ gnc_numeric_convert(gnc_numeric in, int64_t denom, int how)
     {
         return convert(GncNumeric(in), denom, how);
     }
+    catch (const std::invalid_argument& err)
+    {
+        return gnc_numeric_error(GNC_ERROR_OVERFLOW);
+    }
     catch (const std::overflow_error& err)
     {
         return gnc_numeric_error(GNC_ERROR_OVERFLOW);
@@ -1011,6 +1015,10 @@ gnc_numeric_convert(gnc_numeric in, int64_t denom, int how)
     catch (const std::underflow_error& err)
     {
         return gnc_numeric_error(GNC_ERROR_OVERFLOW);
+    }
+    catch (const std::domain_error& err)
+    {
+        return gnc_numeric_error(GNC_ERROR_REMAINDER);
     }
 }
 

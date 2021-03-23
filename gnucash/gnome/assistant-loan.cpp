@@ -26,8 +26,6 @@
 extern "C"
 {
 #include <config.h>
-#include <gtk/gtk.h>
-#include <glib/gi18n.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -52,6 +50,9 @@ extern "C"
 #endif
 }
 
+#include <glib.h>
+#include <glib/gi18n.h>
+#include <gtk/gtk.h>
 #include <gnc-locale-utils.hpp>
 #include <boost/locale.hpp>
 #include <string>
@@ -761,7 +762,7 @@ gnc_loan_assistant_create( LoanAssistantData *ldd )
                 /* Add payment checkbox. */
 
                 /* Translators: %s is "Taxes",
-                 * "Insurance", or similar. */
+                   "Insurance", or similar. */
                 g_string_printf( str, _("... pay \"%s\"?"),
                                  rouid->optData->name );
                 rouid->optCb =
@@ -3013,13 +3014,15 @@ loan_create_sxes( LoanAssistantData *ldd )
             g_string_free( gstr, TRUE );
             gstr = NULL;
 
-            repaySXes = g_list_append( repaySXes, tcSX );
+            repaySXes = g_list_prepend (repaySXes, tcSX);
 
         }
 
         /* repayment */
         ld_setup_repayment_sx( ldd, rod, paymentSX, tcSX );
     }
+
+    repaySXes = g_list_reverse (repaySXes);
     /* Create the SXes */
     {
         GList *l;

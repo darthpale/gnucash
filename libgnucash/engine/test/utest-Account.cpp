@@ -19,11 +19,12 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
  ********************************************************************/
+#include <glib.h>
+
 extern "C"
 {
 #include <config.h>
 #include <string.h>
-#include <glib.h>
 #include <unittest-support.h>
 #include <gnc-event.h>
 #include <gnc-date.h>
@@ -852,8 +853,8 @@ acc_free
 static void
 test_xaccFreeAccount (Fixture *fixture, gconstpointer pData)
 {
-    auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call \n"
-                  " xaccAccountBeginEdit(); xaccAccountDestroy(); \n";
+    auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call\n"
+                  " xaccAccountBeginEdit(); xaccAccountDestroy();\n";
 #ifdef USE_CLANG_FUNC_SIG
 #define _func "int xaccTransGetSplitIndex(const Transaction *, const Split *)"
 #else
@@ -941,7 +942,7 @@ No test, just a pass-through.
 /* acc_free
 static void acc_free (QofInstance *inst)// 2
 ***Callback for qof_commit_edit_part2
-No test, just a passthrough -- plus see comment at test_xaccFreeAccount, which is what this is a passtrough of.
+No test, just a passthrough -- plus see comment at test_xaccFreeAccount, which is what this is a passthrough of.
 */
 /* static void
 test_acc_free (Fixture *fixture, gconstpointer pData)
@@ -966,8 +967,8 @@ Also tests:
 static void
 test_xaccAccountCommitEdit (Fixture *fixture, gconstpointer pData)
 {
-    auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call \n"
-                  " xaccAccountBeginEdit(); xaccAccountDestroy(); \n";
+    auto msg1 = "[xaccFreeAccount()]  instead of calling xaccFreeAccount(), please call\n"
+                  " xaccAccountBeginEdit(); xaccAccountDestroy();\n";
 #ifdef USE_CLANG_FUNC_SIG
 #define _func "int xaccTransGetSplitIndex(const Transaction *, const Split *)"
 #else

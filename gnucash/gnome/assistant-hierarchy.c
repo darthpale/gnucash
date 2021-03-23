@@ -1408,7 +1408,8 @@ starting_balance_helper (Account *account, hierarchy_data *data)
     balance = get_final_balance (data->balance_hash, account);
     if (gnc_reverse_balance(account))
         balance = gnc_numeric_neg(balance);
-    if (!gnc_numeric_zero_p (balance))
+    if (!gnc_numeric_zero_p (balance) &&
+        gnc_commodity_is_currency (xaccAccountGetCommodity (account)))
         gnc_account_create_opening_balance (account, balance, gnc_time (NULL),
                                             gnc_get_current_book ());
 }
@@ -1422,6 +1423,13 @@ on_finish (GtkAssistant  *gtkassistant,
     Account * root;
     ENTER (" ");
     com = gnc_currency_edit_get_currency (GNC_CURRENCY_EDIT(data->currency_selector));
+
+    if (data->our_account_tree)
+    {
+        gnc_account_foreach_descendant (data->our_account_tree,
+                                        (AccountCb)starting_balance_helper,
+                                        data);
+    }
 
     // delete before we suspend GUI events, and then muck with the model,
     // because the model doesn't seem to handle this correctly.
@@ -1444,13 +1452,6 @@ on_finish (GtkAssistant  *gtkassistant,
     xaccAccountSetCommodity(root, com);
 
     gnc_resume_gui_refresh ();
-
-    if (data->our_account_tree)
-    {
-        gnc_account_foreach_descendant (data->our_account_tree,
-                                        (AccountCb)starting_balance_helper,
-                                        data);
-    }
 
     if (when_completed)
     {
